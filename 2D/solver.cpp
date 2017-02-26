@@ -1,21 +1,21 @@
 #include "solver.h"
 
-static float trace_particle(float* X, float* U, float dt, float* X0) {
+static float trace_particle(float* X, float** U, float dt, float* X0) {
     // trace a path starting at X through the field U over a time -dt
     return 0.0f;
 }
 
-static float lin_interp(float* X0, float* S) {
+static float lin_interp(float* X0, float** S) {
     // linearly interpolates value of scalar field S at the location X0
     return 0.0f;
 }
 
-static float diffuse(float* S0, float* S1, float k, float dt) {
+static float diffuse(float** S0, float** S1, float k, float dt) {
     // solve for the diffusion
     return 0.0f;
 }
 
-static float project(float* U1, float* U0, float dt) {
+static float project(float** U1, float** U0, float dt) {
     // perform the projection
     return 0.0f;
 }
@@ -25,12 +25,12 @@ static float solve_lin(float** A, float* b) {
     return 0.0f;
 }
 
-static float dissipate(float* S1, float* S0, float a, float dt) {
+static float dissipate(float** S1, float** S0, float a, float dt) {
     // divide each element of first array by (1 + dt * a) and store in new array
     return 0.0f;
 }
 
-float solver::v_step(float* U1, float* U0, float visc, float* F, float dt) {
+float solver::v_step(float** U1, float** U0, float visc, float* F, float dt) {
     // velocity solver
     
     /* Vstep pseudocode from paper:
@@ -46,7 +46,7 @@ float solver::v_step(float* U1, float* U0, float visc, float* F, float dt) {
     return 0.0f;
 }
 
-float solver::s_step(float* S1, float* S0, float a, float* U, float* source, float dt) {
+float solver::s_step(float** S1, float** S0, float a, float** U, float** source, float dt) {
     // scalar field solver
     
    /* Sstep pseudocode from paper:
@@ -59,7 +59,7 @@ float solver::s_step(float* S1, float* S0, float a, float* U, float* source, flo
     return 0.0f;
 }
 
-float solver::transport(float* S1, float* S0, float* U, float dt) {
+float solver::transport(float** S1, float** S0, float** U, float dt) {
     // accounts for movement of substance due to velocity field
     
    /* Transport pseudocode from paper:

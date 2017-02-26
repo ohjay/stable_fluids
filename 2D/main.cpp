@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
     glutInitWindowPosition(100, 100);
     glutCreateWindow("Stable Fluids");
     
-    fluid.init();
+    fluid.init(0.5f, 0.5f, 0.5f, 0.5f);
     
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
