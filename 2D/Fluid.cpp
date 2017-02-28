@@ -34,19 +34,24 @@ void Fluid::init(float visc, float ks, float as, float dt) {
         S0[i] = new float[num_cells];
         S1[i] = new float[num_cells];
     }
+    
+    (*this).num_cells = num_cells;
 }
 
 void Fluid::step() {
     // handle display and user interaction
 
     // get forces F and sources Ssource from UI
-    float F[3] = {0.f, 0.f, 0.f};
+    // note: the variables below currently contain dummy values (TODO)
+    float F[3] = {0.f, 0.f, 0.f}; // note: for 2D case should this be dimension 2?
+    float Ssource[3] = {0.f, 0.f, 0.f};
 
     // swap U1 and U0, swap S1 and S0
     swap(&U1, &U0); swap(&S1, &S0);
 
     // perform a velocity step (using U1, U0, visc, F, and dt)
-    solver::v_step(U1, U0, visc, F, dt);
+    solver::v_step(U1, U0, visc, F, dt, num_cells, N, O, D);
 
     // perform a scalar step (using S1, S0, kS, aS, U1, Ssource, and dt)
+    solver::s_step(S1, S0, ks, as, U1, Ssource, dt, num_cells, N, O, D);
 }
