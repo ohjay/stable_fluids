@@ -1,6 +1,6 @@
 #include "solver.h"
 
-// given a 1D index and the number of cells in each coordinate, sets XYZ to be a 3D position within the array
+// given a 1D index and the number of cells in each coordinate, sets XYZ to be a 2D/3D position within the array
 // N[NDIM] should be of the form (height, width) in 2D, and (height, width, depth) in 3D
 static void idx_to_xyz(int idx, int N[NDIM], int xyz[NDIM]) {
     if (NDIM == 2) {
@@ -13,7 +13,7 @@ static void idx_to_xyz(int idx, int N[NDIM], int xyz[NDIM]) {
     }
 }
 
-// given a 3D position within the array, returns a 1D index
+// given a 2D/3D position within the array, returns a 1D index
 // N[NDIM] should be of the form (height, width) in 2D, and (height, width, depth) in 3D
 static int xyz_to_idx(int xyz[NDIM], int N[NDIM]) {
     int idx = 0;
@@ -35,11 +35,6 @@ static void add_force(float** field, float* force, float dt, int num_cells) {
     }
 }
 
-// trace a path starting at X through the field U over a time -dt; store result in X0
-static void trace_particle(float* X, float** U, float dt, float* X0) {
-    // (TODO) use second order Runge-Kutta
-}
-
 // returns the distance between two 2D points
 static float dist2(float point0_y, float point0_x, float point1_y, float point1_x) {
     return sqrt(pow(point0_y - point1_y, 2) + pow(point0_x - point1_x, 2));
@@ -52,6 +47,8 @@ static float lin_interp(float* X0, float** S, int N[NDIM], int dim) {
     if (NDIM == 2) {
         int y0 = (int) X0[0];
         int x0 = (int) X0[1];
+        
+        // change to bilinear; I don't know what I was thinking (TODO)
         
         // interpolation weights
         float weight_tl = dist2(X0[0], X0[1], (float) y0, (float) x0);
@@ -73,6 +70,21 @@ static float lin_interp(float* X0, float** S, int N[NDIM], int dim) {
         // currently we don't support this (TODO)
     }
     return result;
+}
+
+// trace a path starting at X through the field U over a time -dt; store result in X0
+static void trace_particle(float* X, float** U, float dt, float* X0, int N[NDIM]) {
+    if (NDIM == 2) {
+        float f_mid[NDIM];
+        f_mid[0] = X[0] - dt / 2.0f * lin_interp(X, U, N, 0);; // U[0][idx] = y-dir @ index IDX
+        f_mid[1] = X[1] - dt / 2.0f * lin_interp(X, U, N, 1);;
+        
+        // interpolate in order to evaluate U at the midpoint
+        X0[0] = X[0] - dt * lin_interp(f_mid, U, N, 0);
+        X0[1] = X[1] - dt * lin_interp(f_mid, U, N, 1);
+    } else if (NDIM == 3) {
+        // currently we don't support this (TODO)
+    }
 }
 
 // solve for the diffusion
@@ -128,13 +140,18 @@ void solver::transport(float** S1, float** S0, float** U, float dt, int num_cell
             int xyz[NDIM];
             idx_to_xyz(j, N, xyz);
             
-            float X[NDIM];
+            // add 0.5 to each coordinate in order to get to the center of the cell
             for (int k = 0; k < NDIM; ++k) {
-                X[k] = O[k] + xyz[k] * D[k];
+                xyz[k] += 0.5f;
+            }
+            
+            float X[NDIM];
+            for (int m = 0; m < NDIM; ++m) {
+                X[m] = O[m] + xyz[m] * D[m];
             }
             
             float X0[NDIM];
-            trace_particle(X, U, -dt, X0);
+            trace_particle(X, U, -dt, X0, N);
             S1[i][j] = lin_interp(X0, S0, N, i);
         }
     }
