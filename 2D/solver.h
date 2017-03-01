@@ -1,4 +1,6 @@
 #include <math.h>
+#include <eigen3/Eigen/IterativeLinearSolvers> // symlink or install into /usr/local/include/
+
 #include "params.h"
 
 namespace solver {

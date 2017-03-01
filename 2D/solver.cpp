@@ -85,6 +85,8 @@ static void trace_particle(float* X, float** U, float dt, float* X0, int N[NDIM]
     } else if (NDIM == 3) {
         // currently we don't support this (TODO)
     }
+    
+    // (TODO) add adaptive step size? (vary dt)
 }
 
 // solve for the diffusion
@@ -97,9 +99,26 @@ static void project(float** U1, float** U0, float dt) {
     // (TODO) requires linear solver
 }
 
-// sparse linear solver for the equation Ax = b (recommended: conjugate gradient)
-static float solve_lin(float** A, float* b) {
-    return 0.0f; // (TODO)
+// sparse linear solver for the equation Ax = b (method: conjugate gradient)
+static float* solve_lin(float** A_, float* b_, int n) {
+    // (TODO) switch everything to Eigen Vectors (?)
+    // (TODO) write this yourself ??
+    
+    Eigen::VectorXf x(n);
+    Eigen::Map<Eigen::VectorXf> b(b_, n);
+    Eigen::SparseMatrix<float> A(n, n);
+    
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            A.insert(i, j) = A_[i][j]; // switch because A is column-major?
+        }
+    }
+    
+    Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower|Eigen::Upper> cg;
+    cg.compute(A);
+    x = cg.solve(b);
+    
+    return x.data();
 }
 
 // divide each element of S0 by (1 + dt * as) and store in S1

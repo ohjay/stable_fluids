@@ -12,6 +12,7 @@ private:
     float **U0, **U1; // velocity grids (positive directions: down and right)
     // U0[0][i] is the y-direction at index i, U0[1][i] is the x-direction at index i
     // if 3D, U[2][i] is the z-direction at index i
+    // purportedly row-major order within the second dimension
     
     float **S0, **S1; // scalar grids (TODO: make these 1D and resolve all references)
     float O[NDIM]; // origin
