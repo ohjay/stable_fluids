@@ -146,8 +146,77 @@ static void diffuse(float* S0, float** S1, float ks, float dt, int num_cells,
 }
 
 // perform the projection
-static void project(float** U1, float** U0, float dt) {
-    // (TODO) requires linear solver
+static void project(float** U1, float** U0, float dt, int num_cells, int N[NDIM], float D[NDIM]) {
+    // again, assuming 2D here
+    // again #2: in the P matrix, there should be five nonzero entries per row
+    
+    Eigen::SparseMatrix<float, Eigen::RowMajor> P(num_cells, num_cells);
+    P.reserve(num_cells * 5);
+    
+    float b[num_cells];
+    
+    int xyz_intermed[NDIM];
+    int curr_xyz[NDIM];
+    
+    // we construct the P matrix and the b vector below
+    // (TODO) look at boundaries
+    for (int row = 1; row < num_cells - 1; ++row) {
+        idx_to_xyz(row, N, curr_xyz);
+        b[row] = 0.f;
+        
+        // 1. (i - 1, j)
+        xyz_intermed[0] = curr_xyz[0] - 1;
+        xyz_intermed[1] = curr_xyz[1];
+        P.insert(row, xyz_to_idx(xyz_intermed, N)) = 1.0f;
+        b[row] -= U0[1][xyz_to_idx(xyz_intermed, N)]; // - U_{i-1,j}
+        
+        // 2. (i + 1, j)
+        xyz_intermed[0] = curr_xyz[0] + 1;
+        P.insert(row, xyz_to_idx(xyz_intermed, N)) = 1.0f;
+        b[row] += U0[1][xyz_to_idx(xyz_intermed, N)]; // + U_{i+1,j}
+        
+        // 3. (i, j - 1)
+        xyz_intermed[0] = curr_xyz[0];
+        xyz_intermed[1] = curr_xyz[1] - 1;
+        P.insert(row, xyz_to_idx(xyz_intermed, N)) = 1.0f;
+        b[row] -= U0[0][xyz_to_idx(xyz_intermed, N)]; // - U_{i,j-1}
+        
+        // 4. (i, j + 1)
+        xyz_intermed[1] = curr_xyz[1] + 1;
+        P.insert(row, xyz_to_idx(xyz_intermed, N)) = 1.0f;
+        b[row] += U0[0][xyz_to_idx(xyz_intermed, N)]; // + U_{i,j+1}
+        
+        // 5. (i, j)
+        P.insert(row, row) = -4.0f;
+        
+        b[row] *= D[0]; // multiply by h
+    }
+    
+    float* S = solve_lin(P, b, num_cells);
+    int ij[2], i1j[2], i_1j[2], ij1[2], ij_1[2]; // "i1j" is (i + 1, j)
+    // likewise, "i_1j" is (i - 1, j)
+    
+    int idx_ij, idx_i1j, idx_i_1j, idx_ij1, idx_ij_1;
+    
+    // subtract the gradient from the previous solution
+    for (int r = 1; r < N[0] - 1; ++r) { // boundaries
+        for (int c = 1; c < N[1] - 1; ++c) {
+            ij[0]   = r;     ij[1]   = c;
+            i1j[0]  = r + 1; i1j[1]  = c;
+            i_1j[0] = r - 1; i_1j[1] = c;
+            ij1[0]  = r;     ij1[1]  = c + 1;
+            ij_1[0] = r;     ij_1[1] = c - 1;
+            
+            idx_ij   = xyz_to_idx(ij,   N);
+            idx_i1j  = xyz_to_idx(i1j,  N);
+            idx_i_1j = xyz_to_idx(i_1j, N);
+            idx_ij1  = xyz_to_idx(ij1,  N);
+            idx_ij_1 = xyz_to_idx(ij_1, N);
+            
+            U1[1][idx_ij] = U0[1][idx_ij] - 0.5f * (S[idx_i1j] - S[idx_i_1j]) / D[1];
+            U1[0][idx_ij] = U0[0][idx_ij] - 0.5f * (S[idx_ij1] - S[idx_ij_1]) / D[0];
+        }
+    }
 }
 
 // divide each element of S0 by (1 + dt * as) and store in S1
@@ -171,9 +240,10 @@ void solver::v_step(float** U1, float** U0, float visc, float* F, float dt, int 
         transport(U1[i], U0[i], U0, dt, num_cells, N, O, D);
     }
     for (int i = 0; i < NDIM; ++i) {
-        diffuse(U0[i], &(U1[i]), visc, dt, num_cells, N, D);
+        diffuse(U0[i], &(U1[i]), visc, dt, num_cells, N, D); // notice that U0 and U1 switch
+        // (TODO) resolve all of the U0 and U1 switches
     }
-    project(U1, U0, dt);
+    project(U1, U0, dt, num_cells, N, D);
 }
 
 // scalar field solver
