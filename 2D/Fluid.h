@@ -14,7 +14,7 @@ private:
     // if 3D, U[2][i] is the z-direction at index i
     // purportedly row-major order within the second dimension
     
-    float **S0, **S1; // scalar grids (TODO: make these 1D and resolve all references)
+    float *S0, *S1; // scalar density grids
     float O[NDIM]; // origin
     int L[NDIM]; // length of each side
     int N[NDIM]; // number of cells in each coordinate

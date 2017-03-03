@@ -1,7 +1,13 @@
 #include "Fluid.h"
 
-static void swap(float*** arr0, float*** arr1) {
+static void swap2d(float*** arr0, float*** arr1) {
     float** temp = *arr0;
+    *arr0 = *arr1;
+    *arr1 = temp;
+}
+
+static void swap1d(float** arr0, float** arr1) {
+    float* temp = *arr0;
     *arr0 = *arr1;
     *arr1 = temp;
 }
@@ -22,18 +28,17 @@ void Fluid::init(float visc, float ks, float as, float dt) {
         num_cells *= N[i];
     }
 
-    // initialize grids (don't forget to delete this memory later)
+    // initialize grids [(TODO) don't forget to delete this memory later]
     U0 = new float*[NDIM]; U1 = new float*[NDIM];
-    S0 = new float*[NDIM]; S1 = new float*[NDIM];
     for (int i = 0; i < NDIM; ++i) {
         // for velocity fields (fluid)
         U0[i] = new float[num_cells];
         U1[i] = new float[num_cells];
-
-        // for scalar fields (substance)
-        S0[i] = new float[num_cells];
-        S1[i] = new float[num_cells];
     }
+    
+    // for density fields (substance)
+    S0 = new float[num_cells];
+    S1 = new float[num_cells];
     
     (*this).num_cells = num_cells;
 }
@@ -44,10 +49,10 @@ void Fluid::step() {
     // get forces F and sources Ssource from UI
     // note: the variables below currently contain dummy values (TODO)
     float F[3] = {0.f, 0.f, 0.f}; // note: for 2D case should this be dimension 2?
-    float Ssource[3] = {0.f, 0.f, 0.f};
+    float Ssource = 0.f;
 
     // swap U1 and U0, swap S1 and S0
-    swap(&U1, &U0); swap(&S1, &S0);
+    swap2d(&U1, &U0); swap1d(&S1, &S0);
 
     // perform a velocity step (using U1, U0, visc, F, and dt)
     solver::v_step(U1, U0, visc, F, dt, num_cells, N, O, D);

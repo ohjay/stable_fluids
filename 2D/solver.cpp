@@ -26,12 +26,9 @@ static int xyz_to_idx(int xyz[NDIM], int N[NDIM]) {
 }
 
 // add the force field multiplied by the time step to each value of the field
-static void add_force(float** field, float* force, float dt, int num_cells) {
-    for (int i = 0; i < NDIM; ++i) {
-        float scaled_force = force[i] * dt;
-        for (int j = 0; j < num_cells; ++j) {
-            field[i][j] += scaled_force;
-        }
+static void add_force(float* field, float force, float dt, int num_cells) {
+    for (int j = 0; j < num_cells; ++j) {
+        field[j] += force;
     }
 }
 
@@ -42,7 +39,7 @@ static float dist2(float point0_y, float point0_x, float point1_y, float point1_
 
 // linearly interpolate value of scalar field S at the location X0
 // this is annoying, and we should be using Foster's staggered grid for this
-static float lin_interp(float* X0, float** S, int N[NDIM], int dim) {
+static float lin_interp(float* X0, float* S, int N[NDIM]) {
     float result = 0.0f;
     if (NDIM == 2) {
         int y0 = (int) X0[0];
@@ -62,10 +59,10 @@ static float lin_interp(float* X0, float** S, int N[NDIM], int dim) {
         
         int xyz[NDIM]; // NDIM should be 2
         xyz[0] = y0;
-        xyz[1] = x0;     result += S[dim][xyz_to_idx(xyz, N)] * weight_tl;
-        xyz[1] = x0 + 1; result += S[dim][xyz_to_idx(xyz, N)] * weight_tr;
-        xyz[0] = y0 + 1; result += S[dim][xyz_to_idx(xyz, N)] * weight_br;
-        xyz[1] = x0;     result += S[dim][xyz_to_idx(xyz, N)] * weight_bl;
+        xyz[1] = x0;     result += S[xyz_to_idx(xyz, N)] * weight_tl;
+        xyz[1] = x0 + 1; result += S[xyz_to_idx(xyz, N)] * weight_tr;
+        xyz[0] = y0 + 1; result += S[xyz_to_idx(xyz, N)] * weight_br;
+        xyz[1] = x0;     result += S[xyz_to_idx(xyz, N)] * weight_bl;
     } else if (NDIM == 3) {
         // currently we don't support this (TODO)
     }
@@ -76,12 +73,12 @@ static float lin_interp(float* X0, float** S, int N[NDIM], int dim) {
 static void trace_particle(float* X, float** U, float dt, float* X0, int N[NDIM]) {
     if (NDIM == 2) {
         float f_mid[NDIM];
-        f_mid[0] = X[0] - dt / 2.0f * lin_interp(X, U, N, 0);; // U[0][idx] = y-dir @ index IDX
-        f_mid[1] = X[1] - dt / 2.0f * lin_interp(X, U, N, 1);;
+        f_mid[0] = X[0] - dt / 2.0f * lin_interp(X, U[0], N);; // U[0][idx] = y-dir @ index IDX
+        f_mid[1] = X[1] - dt / 2.0f * lin_interp(X, U[1], N);;
         
         // interpolate in order to evaluate U at the midpoint
-        X0[0] = X[0] - dt * lin_interp(f_mid, U, N, 0);
-        X0[1] = X[1] - dt * lin_interp(f_mid, U, N, 1);
+        X0[0] = X[0] - dt * lin_interp(f_mid, U[0], N);
+        X0[1] = X[1] - dt * lin_interp(f_mid, U[1], N);
     } else if (NDIM == 3) {
         // currently we don't support this (TODO)
     }
@@ -89,31 +86,13 @@ static void trace_particle(float* X, float** U, float dt, float* X0, int N[NDIM]
     // (TODO) add adaptive step size? (vary dt)
 }
 
-// solve for the diffusion
-static void diffuse(float** S0, float** S1, float k, float dt) {
-    // (TODO) requires linear solver
-}
-
-// perform the projection
-static void project(float** U1, float** U0, float dt) {
-    // (TODO) requires linear solver
-}
-
 // sparse linear solver for the equation Ax = b (method: conjugate gradient)
-static float* solve_lin(float** A_, float* b_, int n) {
+static float* solve_lin(Eigen::SparseMatrix<float, Eigen::RowMajor> A, float* b_, int n) {
     // (TODO) switch everything to Eigen Vectors (?)
-    // (TODO) write this yourself ??
+    // (TODO) write this yourself ?? Can start with Jacobi or Gauss-Seidel
     
     Eigen::VectorXf x(n);
     Eigen::Map<Eigen::VectorXf> b(b_, n);
-    Eigen::SparseMatrix<float> A(n, n);
-    
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            A.insert(i, j) = A_[i][j]; // switch because A is column-major?
-        }
-    }
-    
     Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower|Eigen::Upper> cg;
     cg.compute(A);
     x = cg.solve(b);
@@ -121,12 +100,60 @@ static float* solve_lin(float** A_, float* b_, int n) {
     return x.data();
 }
 
+// solve for the diffusion (currently only for 2D)
+static void diffuse(float* S0, float** S1, float ks, float dt, int num_cells,
+        int N[NDIM], float D[NDIM]) {
+    // construct the A matrix (n^2 * n^2)
+    // in each row, I believe there should be five nonzero entries
+    
+    float neighbor_multiplier = -dt * ks / (D[0] * D[0]);
+    float center_multiplier = 1.0f - (4 * dt * ks) / (D[0] * D[0]);
+    
+    Eigen::SparseMatrix<float, Eigen::RowMajor> A(num_cells, num_cells);
+    A.reserve(num_cells * 5);
+    
+    int xyz_intermed[NDIM];
+    int curr_xyz[NDIM];
+    
+    // handle boundary conditions somehow (currently neglected)
+    for (int row = 1; row < num_cells - 1; ++row) {
+        idx_to_xyz(row, N, curr_xyz);
+        
+        // 1. (i - 1, j) contribution
+        xyz_intermed[0] = curr_xyz[0] - 1;
+        xyz_intermed[1] = curr_xyz[1];
+        A.insert(row, xyz_to_idx(xyz_intermed, N)) = neighbor_multiplier;
+        
+        // 2. (i + 1, j) contribution
+        xyz_intermed[0] = curr_xyz[0] + 1;
+        A.insert(row, xyz_to_idx(xyz_intermed, N)) = neighbor_multiplier;
+        
+        // 3. (i, j - 1) contribution
+        xyz_intermed[0] = curr_xyz[0];
+        xyz_intermed[1] = curr_xyz[1] - 1;
+        A.insert(row, xyz_to_idx(xyz_intermed, N)) = neighbor_multiplier;
+        
+        // 4. (i, j + 1) contribution
+        xyz_intermed[1] = curr_xyz[1] + 1;
+        A.insert(row, xyz_to_idx(xyz_intermed, N)) = neighbor_multiplier;
+        
+        // 5. (i, j) contribution
+        A.insert(row, row) = center_multiplier;
+    }
+    
+    // store the result in S1 (make sure S1 is passed in as a pointer)
+    *S1 = solve_lin(A, S0, num_cells); // diffusion result
+}
+
+// perform the projection
+static void project(float** U1, float** U0, float dt) {
+    // (TODO) requires linear solver
+}
+
 // divide each element of S0 by (1 + dt * as) and store in S1
-static void dissipate(float** S1, float** S0, float as, float dt, int num_cells) {
-    for (int i = 0; i < NDIM; ++i) {
-        for (int j = 0; j < num_cells; ++j) {
-            S1[i][j] = S0[i][j] / (1.f + dt * as);
-        }
+static void dissipate(float* S1, float* S0, float as, float dt, int num_cells) {
+    for (int j = 0; j < num_cells; ++j) {
+        S1[j] = S0[j] / (1.f + dt * as);
     }
 }
 
@@ -136,42 +163,47 @@ static void dissipate(float** S1, float** S0, float as, float dt, int num_cells)
 // velocity field solver
 void solver::v_step(float** U1, float** U0, float visc, float* F, float dt, int num_cells,
         int N[NDIM], float O[NDIM], float D[NDIM]) {
-    add_force(U0, F, dt, num_cells);
-    transport(U1, U0, U0, dt, num_cells, N, O, D);
-    diffuse(U0, U1, visc, dt);
+    for (int i = 0; i < NDIM; ++i) {
+        float scaled_force = F[i] * dt;
+        add_force(U0[i], scaled_force, dt, num_cells);
+    }
+    for (int i = 0; i < NDIM; ++i) {
+        transport(U1[i], U0[i], U0, dt, num_cells, N, O, D);
+    }
+    for (int i = 0; i < NDIM; ++i) {
+        diffuse(U0[i], &(U1[i]), visc, dt, num_cells, N, D);
+    }
     project(U1, U0, dt);
 }
 
 // scalar field solver
-void solver::s_step(float** S1, float** S0, float ks, float as, float** U, float* source, float dt,
+void solver::s_step(float* S1, float* S0, float ks, float as, float** U, float source, float dt,
         int num_cells, int N[NDIM], float O[NDIM], float D[NDIM]) {
     add_force(S0, source, dt, num_cells);
     transport(S1, S0, U, dt, num_cells, N, O, D);
-    diffuse(S0, S1, ks, dt);
+    diffuse(S0, &S1, ks, dt, num_cells, N, D);
     dissipate(S1, S0, as, dt, num_cells);
 }
 
 // accounts for movement of substance due to velocity field
-void solver::transport(float** S1, float** S0, float** U, float dt, int num_cells,
+void solver::transport(float* S1, float* S0, float** U, float dt, int num_cells,
         int N[NDIM], float O[NDIM], float D[NDIM]) {
-    for (int i = 0; i < NDIM; ++i) {
-        for (int j = 0; j < num_cells; ++j) {
-            int xyz[NDIM];
-            idx_to_xyz(j, N, xyz);
-            
-            // add 0.5 to each coordinate in order to get to the center of the cell
-            for (int k = 0; k < NDIM; ++k) {
-                xyz[k] += 0.5f;
-            }
-            
-            float X[NDIM];
-            for (int m = 0; m < NDIM; ++m) {
-                X[m] = O[m] + xyz[m] * D[m];
-            }
-            
-            float X0[NDIM];
-            trace_particle(X, U, -dt, X0, N);
-            S1[i][j] = lin_interp(X0, S0, N, i);
+    for (int j = 0; j < num_cells; ++j) {
+        int xyz[NDIM];
+        idx_to_xyz(j, N, xyz);
+
+        // add 0.5 to each coordinate in order to get to the center of the cell
+        for (int k = 0; k < NDIM; ++k) {
+            xyz[k] += 0.5f;
         }
+
+        float X[NDIM];
+        for (int m = 0; m < NDIM; ++m) {
+            X[m] = O[m] + xyz[m] * D[m];
+        }
+
+        float X0[NDIM];
+        trace_particle(X, U, -dt, X0, N);
+        S1[j] = lin_interp(X0, S0, N);
     }
 }
