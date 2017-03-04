@@ -1,0 +1,10 @@
+#include "debug.h"
+
+// print three values of the array (the array should be of size n)
+void print_fl_array(float* arr, int n) {
+    int idx1 = (int) n / 4, idx2 = (int) n / 2, idx3 = (int) 3 * n / 4;
+    float val1 = arr[idx1], val2 = arr[idx2], val3 = arr[idx3];
+    cout << "---" << endl;
+    cout << "idx " << idx1 << ": " << val1 << "; idx " << idx2
+            << ": " << val2 << "; idx " << idx3 << ": " << val3 << endl;
+}

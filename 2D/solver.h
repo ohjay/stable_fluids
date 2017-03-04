@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "params.h"
+#include "debug.h"
 
 namespace solver {
     // functions we will actually call from outside

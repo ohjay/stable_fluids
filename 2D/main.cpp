@@ -9,8 +9,8 @@ float Ssource;
 
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
-    F[0] = 5.0f; F[1] = 5.0f;
-    Ssource = 150.0f;
+    F[0] = 1.0f; F[1] = 2.0f;
+    Ssource = 50.0f;
 }
 
 // everything we need in order to redraw the scene
@@ -64,6 +64,7 @@ void mouse(int button, int state, int x, int y) {
                 // do something here, like create a new object
                 F[0] += 5.0f;
                 F[1] -= 1.0f;
+                Ssource += 10.0f;
             }
             break;
         default:
@@ -88,6 +89,9 @@ void keyboard(unsigned char key, int x, int y) {
 // render the next frame of our simulation
 void idle(void) {
     fluid.step(F, Ssource);
+    if (F[0] != 0) { F[0] = 0; }
+    if (F[1] != 0) { F[1] = 0; }
+    if (Ssource != 0) { Ssource = 0; }
     glutPostRedisplay();
 }
 
