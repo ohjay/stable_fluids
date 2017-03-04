@@ -22,8 +22,8 @@ void Fluid::init(float visc, float ks, float as, float dt) {
     int num_cells = 1;
     for (int i = 0; i < NDIM; ++i) {
         O[i] = 0.f;
-        L[i] = 50;
-        N[i] = 50;
+        L[i] = 30;
+        N[i] = 30;
         D[i] = L[i] / N[i];
         num_cells *= N[i];
     }
@@ -43,13 +43,9 @@ void Fluid::init(float visc, float ks, float as, float dt) {
     (*this).num_cells = num_cells;
 }
 
-void Fluid::step() {
+void Fluid::step(float F[2], float Ssource) {
     // handle display and user interaction
-
     // get forces F and sources Ssource from UI
-    // note: the variables below currently contain dummy values (TODO)
-    float F[3] = {0.f, 0.f, 0.f}; // note: for 2D case should this be dimension 2?
-    float Ssource = 0.f;
 
     // swap U1 and U0, swap S1 and S0
     swap2d(&U1, &U0); swap1d(&S1, &S0);
@@ -59,4 +55,23 @@ void Fluid::step() {
 
     // perform a scalar step (using S1, S0, kS, aS, U1, Ssource, and dt)
     solver::s_step(S1, S0, ks, as, U1, Ssource, dt, num_cells, N, O, D);
+}
+
+int Fluid::num_cells_x() {
+    return N[1];
+}
+
+int Fluid::num_cells_y() {
+    return N[0];
+}
+
+float Fluid::grid_spacing() {
+    return (D[0] > D[1]) ? D[0] : D[1];
+}
+
+float Fluid::S_at(int y, int x) {
+    int xyz[2];
+    xyz[0] = y; xyz[1] = x;
+    
+    return S0[solver::xyz_to_idx(xyz, N)];
 }
