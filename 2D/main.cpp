@@ -33,15 +33,16 @@ void display(void) {
         for (int c = 0; c < w; ++c) {
             x = (c - 0.5f) * vsize;
             
-            c00 = fluid.S_at(r, c);
-            c01 = fluid.S_at(r, c + 1);
-            c10 = fluid.S_at(r + 1, c);
-            c11 = fluid.S_at(r + 1, c + 1);
+            // (TODO) these 1500s should not be here; they're just here for debugging help
+            c00 = fluid.S_at(r, c)  / 1500.0f;
+            c01 = fluid.S_at(r, c + 1) / 1500.0f;
+            c10 = fluid.S_at(r + 1, c) / 1500.0f;
+            c11 = fluid.S_at(r + 1, c + 1) / 1500.0f;
             
-            glColor4f(c11, c11, 0.1, alpha); glVertex2f(x + vsize, y + vsize);
-            glColor4f(c01, c01, 0.2, alpha); glVertex2f(x, y + vsize);
-            glColor4f(c00, c00, 0.3, alpha); glVertex2f(x, y);
-            glColor4f(c10, c10, 0.4, alpha); glVertex2f(x + vsize, y);
+            glColor4f(c11, c11, 0.1, alpha); glVertex2f((x + vsize) / 25.0f - 0.5f, (y + vsize) / 25.0f - 0.5f);
+            glColor4f(c01, c01, 0.2, alpha); glVertex2f(x / 25.0f - 0.5f, (y + vsize) / 25.0f - 0.5f);
+            glColor4f(c00, c00, 0.3, alpha); glVertex2f(x / 25.0f - 0.5f, y / 25.0f - 0.5f);
+            glColor4f(c10, c10, 0.4, alpha); glVertex2f((x + vsize) / 25.0f - 0.5f, y / 25.0f - 0.5f);
         }
     }
 
@@ -98,7 +99,7 @@ int main(int argc, char* argv[]) {
     glutCreateWindow("Stable Fluids");
     
     init();
-    fluid.init(0.2f, 0.3f, 0.4f, 0.5f);
+    fluid.init(0.1f, 0.2f, 0.3f, 0.4f);
     
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);

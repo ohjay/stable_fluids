@@ -73,5 +73,5 @@ float Fluid::S_at(int y, int x) {
     int xyz[2];
     xyz[0] = y; xyz[1] = x;
     
-    return S0[solver::xyz_to_idx(xyz, N)];
+    return S1[solver::xyz_to_idx(xyz, N)];
 }
