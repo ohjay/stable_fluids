@@ -9,8 +9,8 @@ float Ssource;
 
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
-    F[0] = 1.0f; F[1] = 2.0f;
-    Ssource = 50.0f;
+    F[0] = -2.0f; F[1] = 3.0f;
+    Ssource = 200.0f;
 }
 
 // everything we need in order to redraw the scene
@@ -62,9 +62,9 @@ void mouse(int button, int state, int x, int y) {
         case GLUT_LEFT_BUTTON:
             if (state == GLUT_DOWN) {
                 // do something here, like create a new object
-                F[0] += 5.0f;
-                F[1] -= 1.0f;
-                Ssource += 10.0f;
+                F[0] += 12.0f;
+                F[1] += 15.0f;
+                Ssource += 120.0f;
             }
             break;
         default:

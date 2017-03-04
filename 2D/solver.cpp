@@ -307,10 +307,10 @@ void solver::v_step(float** U1, float** U0, float visc, float* F, float dt, int 
         transport(U1[i], U0[i], U0, dt, num_cells, N, O, D);
     }
     for (int i = 0; i < NDIM; ++i) {
-        diffuse(U1[i], U0[i], visc, dt, num_cells, N, D); // notice that U0 and U1 switch
+        // diffuse(U1[i], U0[i], visc, dt, num_cells, N, D); // notice that U0 and U1 switch
         // (TODO) resolve all of the U0 and U1 switches
     }
-    project(U1, U0, dt, num_cells, N, D);
+    // project(U1, U0, dt, num_cells, N, D);
 }
 
 // scalar field solver
@@ -318,6 +318,8 @@ void solver::s_step(float* S1, float* S0, float ks, float as, float** U, float s
         int num_cells, int N[NDIM], float O[NDIM], float D[NDIM]) {
     add_force(S0, source, dt, num_cells);
     transport(S1, S0, U, dt, num_cells, N, O, D);
-    diffuse(S1, S0, ks, dt, num_cells, N, D);
-    dissipate(S1, S0, as, dt, num_cells);
+    print_fl_array(S1, num_cells, "before");
+    // diffuse(S1, S0, ks, dt, num_cells, N, D);
+    // dissipate(S1, S0, as, dt, num_cells);
+    print_fl_array(S1, num_cells, "after");
 }
