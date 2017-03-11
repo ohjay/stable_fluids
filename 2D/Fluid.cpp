@@ -22,8 +22,8 @@ void Fluid::init(float visc, float ks, float as, float dt) {
     int num_cells = 1;
     for (int i = 0; i < NDIM; ++i) {
         O[i] = 0.f;
-        L[i] = 30;
-        N[i] = 30;
+        L[i] = 50;
+        N[i] = 50;
         D[i] = L[i] / N[i];
         num_cells *= N[i];
     }

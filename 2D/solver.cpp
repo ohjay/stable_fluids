@@ -35,53 +35,30 @@ static void add_force(float* field, float force, float dt, int num_cells) {
     }
 }
 
-// returns the distance between two 2D points
-static float dist2(float point0_y, float point0_x, float point1_y, float point1_x) {
-    return sqrt(pow(point0_y - point1_y, 2) + pow(point0_x - point1_x, 2));
-}
-
 // linearly interpolate value of scalar field S at the location X0
-// this is annoying, and we should be using Foster's staggered grid for this
+// we should maybe be using Foster's staggered grid for this
 static float lin_interp(float* X0, float* S, int N[NDIM], int num_cells) {
-    float result = 0.0f;
     if (NDIM == 2) {
         int y0 = (int) X0[0];
         int x0 = (int) X0[1];
         
-        // change to bilinear; I don't know what I was thinking (TODO)
-        
-        // interpolation weights
-        float weight_tl = dist2(X0[0], X0[1], (float) y0, (float) x0);
-        float weight_tr = dist2(X0[0], X0[1], (float) y0, (float) x0 + 1);
-        float weight_bl = dist2(X0[0], X0[1], (float) y0 + 1, (float) x0);
-        float weight_br = dist2(X0[0], X0[1], (float) y0 + 1, (float) x0 + 1);
-        
-        // normalize
-        float sum = weight_tl + weight_tr + weight_bl + weight_br;
-        weight_tl /= sum; weight_tr /= sum; weight_bl /= sum; weight_br /= sum;
-        
-        int i, xyz[NDIM]; // NDIM should be 2
+        float x_result1, x_result2; // upper and lower portions, respectively
+        int xyz[NDIM];
         xyz[0] = y0;
-        xyz[1] = x0;     i = xyz_to_idx(xyz, N);
-        if (i >= 0 && i < num_cells) {
-            result += S[i] * weight_tl;
-        }
-        xyz[1] = x0 + 1; i = xyz_to_idx(xyz, N);
-        if (i >= 0 && i < num_cells) {
-            result += S[i] * weight_tr;
-        }
-        xyz[0] = y0 + 1; i = xyz_to_idx(xyz, N);
-        if (i >= 0 && i < num_cells) {
-            result += S[i] * weight_br;
-        }
-        xyz[1] = x0;     i = xyz_to_idx(xyz, N);
-        if (i >= 0 && i < num_cells) {
-            result += S[i] * weight_bl;
-        }
+        xyz[1] = x0 + 1; x_result1 =  (X0[1] - x0) * S[xyz_to_idx(xyz, N)];
+        xyz[1] = x0;     x_result1 += (x0 + 1 - X0[1]) * S[xyz_to_idx(xyz, N)];
+        
+        xyz[0] = y0 + 1; x_result2 =  (x0 + 1 - X0[1]) * S[xyz_to_idx(xyz, N)];
+        xyz[1] = x0 + 1; x_result2 += (X0[1] - x0) * S[xyz_to_idx(xyz, N)];
+        
+        return (X0[0] - y0) * x_result2 + (y0 + 1 - X0[0]) * x_result1;
     } else if (NDIM == 3) {
-        // currently we don't support this (TODO)
+        // (TODO) add trilinear interpolation code here
+        return 0.0f;
+    } else {
+        // currently we only support 2D and 3D animations
+        return 0.0f;
     }
-    return result;
 }
 
 // trace a path starting at X through the field U over a time -dt; store result in X0
@@ -180,6 +157,7 @@ static void diffuse(float* S1, float* S0, float ks, float dt, int num_cells,
 static void project(float** U1, float** U0, float dt, int num_cells, int N[NDIM], float D[NDIM]) {
     // again, assuming 2D here
     // again #2: in the P matrix, there should be five nonzero entries per row
+    // except at boundaries
     
     Eigen::SparseMatrix<float, Eigen::RowMajor> P(num_cells, num_cells);
     P.reserve(num_cells * 5);
@@ -318,8 +296,8 @@ void solver::s_step(float* S1, float* S0, float ks, float as, float** U, float s
         int num_cells, int N[NDIM], float O[NDIM], float D[NDIM]) {
     add_force(S0, source, dt, num_cells);
     transport(S1, S0, U, dt, num_cells, N, O, D);
-    print_fl_array(S1, num_cells, "before");
+    // print_fl_array(S1, num_cells, "before");
     // diffuse(S1, S0, ks, dt, num_cells, N, D);
     // dissipate(S1, S0, as, dt, num_cells);
-    print_fl_array(S1, num_cells, "after");
+    // print_fl_array(S1, num_cells, "after");
 }

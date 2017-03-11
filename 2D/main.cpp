@@ -39,10 +39,10 @@ void display(void) {
             c10 = fluid.S_at(r + 1, c) / 1500.0f;
             c11 = fluid.S_at(r + 1, c + 1) / 1500.0f;
             
-            glColor4f(c11, c11, 0.1, alpha); glVertex2f((x + vsize) / 25.0f - 0.5f, (y + vsize) / 25.0f - 0.5f);
-            glColor4f(c01, c01, 0.2, alpha); glVertex2f(x / 25.0f - 0.5f, (y + vsize) / 25.0f - 0.5f);
-            glColor4f(c00, c00, 0.3, alpha); glVertex2f(x / 25.0f - 0.5f, y / 25.0f - 0.5f);
-            glColor4f(c10, c10, 0.4, alpha); glVertex2f((x + vsize) / 25.0f - 0.5f, y / 25.0f - 0.5f);
+            glColor4f(c11, c11, c11, alpha); glVertex2f((x + vsize) / 50.0f - 0.5f, (y + vsize) / 50.0f - 0.5f);
+            glColor4f(c01, c01, c01, alpha); glVertex2f(x / 50.0f - 0.5f, (y + vsize) / 50.0f - 0.5f);
+            glColor4f(c00, c00, c00, alpha); glVertex2f(x / 50.0f - 0.5f, y / 50.0f - 0.5f);
+            glColor4f(c10, c10, c10, alpha); glVertex2f((x + vsize) / 50.0f - 0.5f, y / 50.0f - 0.5f);
         }
     }
 
