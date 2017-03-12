@@ -37,7 +37,7 @@ void Fluid::init(float visc, float ks, float as, float dt) {
     S1 = new float[NUM_CELLS];
 }
 
-void Fluid::step(float F[2], float Ssource) {
+void Fluid::step(float F[2], float Ssource, int Fy, int Fx) {
     // handle display and user interaction
     // get forces F and sources Ssource from UI
 
@@ -48,7 +48,7 @@ void Fluid::step(float F[2], float Ssource) {
     solver::v_step(U1, U0, visc, F, dt, O, D);
 
     // perform a scalar step (using S1, S0, kS, aS, U1, Ssource, and dt)
-    solver::s_step(S1, S0, ks, as, U1, Ssource, dt, O, D);
+    solver::s_step(S1, S0, ks, as, U1, Ssource, dt, O, D, Fy, Fx);
 }
 
 float Fluid::grid_spacing() {

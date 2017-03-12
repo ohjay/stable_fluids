@@ -19,7 +19,7 @@ private:
     float D[NDIM]; // size of each voxel
 public:
     void init(float visc, float ks, float as, float dt);
-    void step(float F[2], float Ssource);
+    void step(float F[2], float Ssource, int Fy, int Fx);
 
     // properties of fluid
     float visc; // viscosity

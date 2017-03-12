@@ -6,10 +6,13 @@ int window_height = 800;
 Fluid fluid;
 float F[2];
 float Ssource;
+int Fy, Fx;
 
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
     F[0] = -2.0f; F[1] = 3.0f;
+    Fy = CELLS_PER_SIDE / 2;
+    Fx = CELLS_PER_SIDE / 2;
     Ssource = 200.0f;
 }
 
@@ -65,6 +68,10 @@ void mouse(int button, int state, int x, int y) {
                 F[0] += 12.0f;
                 F[1] += 15.0f;
                 Ssource += 120.0f;
+                
+                // (TODO) should really use SIDE_LEN
+                Fy = (int) (((float) (window_width - y) / window_width) * CELLS_PER_SIDE);
+                Fx = (int) (((float) x / window_width) * CELLS_PER_SIDE);
             }
             break;
         default:
@@ -80,6 +87,7 @@ void keyboard(unsigned char key, int x, int y) {
     switch (key) {
         case 'q':
             // do something here, like quit
+            throw "exit";
             break;
         default:
             break;
@@ -88,7 +96,7 @@ void keyboard(unsigned char key, int x, int y) {
 
 // render the next frame of our simulation
 void idle(void) {
-    fluid.step(F, Ssource);
+    fluid.step(F, Ssource, Fy, Fx);
     if (F[0] != 0) { F[0] = 0; }
     if (F[1] != 0) { F[1] = 0; }
     if (Ssource != 0) { Ssource = 0; }
@@ -111,7 +119,12 @@ int main(int argc, char* argv[]) {
     glutMotionFunc(motion);
     glutKeyboardFunc(keyboard);
     glutIdleFunc(idle);
-    glutMainLoop();
+    
+    try {
+        glutMainLoop();
+    } catch (const char* msg) {
+        std::cout << "[+] Program terminated." << std::endl;
+    }
     
     return 0;
 }

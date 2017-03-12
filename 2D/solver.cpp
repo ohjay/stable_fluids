@@ -49,6 +49,15 @@ static void add_force(float* field, float force, float dt) {
     */
 }
 
+// add a force at some specified position in the grid
+static void add_force_at(float* field, float force, float dt, int y, int x) {
+    for (int i = y - 5; i < y + 5; ++i) {
+        for (int j = x - 5; j < x + 5; ++j) {
+            field[idx2d(i, j)] += force * dt;
+        }
+    }
+}
+
 /**********************************************************************/
 /* (TODO) REMOVE THIS IN FAVOR OF THE COMMENTED-OUT BILERP CODE BELOW */
 /**********************************************************************/
@@ -385,14 +394,13 @@ static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], 
 void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
         float O[NDIM], float D[NDIM]) {
     for (int i = 0; i < NDIM; ++i) {
-        float scaled_force = F[i] * dt;
-        add_force(U0[i], scaled_force, dt);
+        add_force(U0[i], F[i], dt);
     }
     for (int i = 0; i < NDIM; ++i) {
         transport(U1[i], U0[i], U0, dt, O, D, 2 - i);
     }
     for (int i = 0; i < NDIM; ++i) {
-        // diffuse(U1[i], U0[i], visc, dt, D); // notice that U0 and U1 switch
+        diffuse(U0[i], U1[i], visc, dt, D); // notice that U0 and U1 switch
         // (TODO) resolve all of the U0 and U1 switches
     }
     project(U1, U0, dt, D);
@@ -400,7 +408,7 @@ void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
 
 // scalar field solver
 void solver::s_step(float* S1, float* S0, float ks, float as, float** U, float source, float dt,
-        float O[NDIM], float D[NDIM]) {
+        float O[NDIM], float D[NDIM], int Fy, int Fx) {
     add_force(S0, source, dt);
     transport(S1, S0, U, dt, O, D, 0);
     // print_fl_array(S1, NUM_CELLS, "before");
