@@ -36,9 +36,17 @@ int solver::idx2d(int y, int x) {
 
 // add the force field multiplied by the time step to each value of the field
 static void add_force(float* field, float force, float dt) {
-    for (int j = 0; j < NUM_CELLS; ++j) {
+    for (int j = 1000; j < NUM_CELLS - 1000; ++j) {
         field[j] += force;
     }
+    
+    /* (TODO) should be
+    
+    for (int j = 0; j < NUM_CELLS; ++j) {
+        field[j] += force * dt;
+    }
+    
+    */
 }
 
 /**********************************************************************/
@@ -179,6 +187,21 @@ static void set_boundaries2d(float* arr, float val) {
     }
 }
 
+static void boundary_reverse(float* arr, int option) {
+    int nc = CELLS_PER_SIDE;
+    for (int i = 1; i < nc - 1; ++i) {
+        arr[idx2d(0, i)] = (option == 1) ? -arr[idx2d(1, i)] : arr[idx2d(1, i)];
+        arr[idx2d(nc - 1, i)] = (option == 1) ? -arr[idx2d(nc - 2, i)] : arr[idx2d(nc - 2, i)];
+        arr[idx2d(i, 0)] = (option == 2) ? -arr[idx2d(i, 1)] : arr[idx2d(i, 1)];
+        arr[idx2d(i, nc - 1)] = (option == 2) ? -arr[idx2d(i, nc - 2)] : arr[idx2d(i, nc - 2)];
+    }
+    
+    arr[idx2d(0, 0)] = 0.5f * (arr[idx2d(1, 0)] + arr[idx2d(0, 1)]);
+    arr[idx2d(0, nc - 1)] = 0.5f * (arr[idx2d(1, nc - 1)] + arr[idx2d(0, nc - 2)]);
+    arr[idx2d(nc - 1, 0)] = 0.5f * (arr[idx2d(nc - 2, 0)] + arr[idx2d(nc - 1, 1)]);
+    arr[idx2d(nc - 1, nc - 1)] = 0.5f * (arr[idx2d(nc - 2, nc - 1)] + arr[idx2d(nc - 1, nc - 2)]);
+}
+
 // solves discretized 2d poisson equation using conjugate gradient
 // finite difference version of eqn is as follows:
 // 
@@ -261,7 +284,8 @@ static void poisson2d(float k1, float k2, float* S1, float* S0, int num_iter=20)
         memcpy(r, new_r, sizeof(r));
         
         // set the boundaries of our current solution to 0 (Neumann condition)
-        set_boundaries2d(S1, 0);
+        // set_boundaries2d(S1, 0);
+        boundary_reverse(S1, 0);
     }
 }
 
@@ -294,7 +318,8 @@ static void project(float** U1, float** U0, float dt, float D[NDIM]) {
         }
     }
     
-    set_boundaries2d(divergence, 0);
+    boundary_reverse(divergence, 0);
+    // set_boundaries2d(divergence, 0);
     poisson2d(k1, k2, x, divergence);
     
     int idx_i1j, idx_i_1j, idx_ij1, idx_ij_1;
@@ -315,8 +340,11 @@ static void project(float** U1, float** U0, float dt, float D[NDIM]) {
     }
     
     // set the boundaries one final time
-    set_boundaries2d(U1[0], 0);
-    set_boundaries2d(U0[0], 0);
+    boundary_reverse(U1[1], 1);
+    boundary_reverse(U1[0], 2);
+    
+    // set_boundaries2d(U1[0], 0);
+    // set_boundaries2d(U1[1], 0);
 }
 
 // divide each element of S0 by (1 + dt * as) and store in S1
@@ -327,7 +355,7 @@ static void dissipate(float* S1, float* S0, float as, float dt) {
 }
 
 // accounts for movement of substance due to velocity field
-static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], float D[NDIM]) {
+static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], float D[NDIM], int option) {
     for (int j = 0; j < NUM_CELLS; ++j) {
         int xyz[NDIM];
         idx_to_xyz(j, xyz);
@@ -346,6 +374,8 @@ static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], 
         trace_particle(X, U, -dt, X0);
         S1[j] = lin_interp(X0, S0);
     }
+    
+    // boundary_reverse(S1, option);
 }
 
 // considerations:
@@ -359,7 +389,7 @@ void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
         add_force(U0[i], scaled_force, dt);
     }
     for (int i = 0; i < NDIM; ++i) {
-        transport(U1[i], U0[i], U0, dt, O, D);
+        transport(U1[i], U0[i], U0, dt, O, D, 2 - i);
     }
     for (int i = 0; i < NDIM; ++i) {
         // diffuse(U1[i], U0[i], visc, dt, D); // notice that U0 and U1 switch
@@ -372,7 +402,7 @@ void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
 void solver::s_step(float* S1, float* S0, float ks, float as, float** U, float source, float dt,
         float O[NDIM], float D[NDIM]) {
     add_force(S0, source, dt);
-    transport(S1, S0, U, dt, O, D);
+    transport(S1, S0, U, dt, O, D, 0);
     // print_fl_array(S1, NUM_CELLS, "before");
     // diffuse(S1, S0, ks, dt, D);
     // dissipate(S1, S0, as, dt);
