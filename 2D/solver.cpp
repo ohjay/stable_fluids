@@ -196,15 +196,21 @@ static void set_boundaries2d(float* arr, float val) {
     }
 }
 
+// reverses direction of field at boundaries; option specifies which dimension we're handling
+// 0: vertical component, 1: horizontal component, 2: scalar field
 static void boundary_reverse(float* arr, int option) {
     int nc = CELLS_PER_SIDE;
     for (int i = 1; i < nc - 1; ++i) {
-        arr[idx2d(0, i)] = (option == 1) ? -arr[idx2d(1, i)] : arr[idx2d(1, i)];
-        arr[idx2d(nc - 1, i)] = (option == 1) ? -arr[idx2d(nc - 2, i)] : arr[idx2d(nc - 2, i)];
-        arr[idx2d(i, 0)] = (option == 2) ? -arr[idx2d(i, 1)] : arr[idx2d(i, 1)];
-        arr[idx2d(i, nc - 1)] = (option == 2) ? -arr[idx2d(i, nc - 2)] : arr[idx2d(i, nc - 2)];
+        // vertical boundary reverse
+        arr[idx2d(0, i)] = (option == 0) ? fabs(arr[idx2d(1, i)]) : arr[idx2d(1, i)];
+        arr[idx2d(nc - 1, i)] = (option == 0) ? -fabs(arr[idx2d(nc - 2, i)]) : arr[idx2d(nc - 2, i)];
+        
+        // horizontal boundary reverse
+        arr[idx2d(i, 0)] = (option == 1) ? fabs(arr[idx2d(i, 1)]) : arr[idx2d(i, 1)];
+        arr[idx2d(i, nc - 1)] = (option == 1) ? -fabs(arr[idx2d(i, nc - 2)]) : arr[idx2d(i, nc - 2)];
     }
     
+    // corners
     arr[idx2d(0, 0)] = 0.5f * (arr[idx2d(1, 0)] + arr[idx2d(0, 1)]);
     arr[idx2d(0, nc - 1)] = 0.5f * (arr[idx2d(1, nc - 1)] + arr[idx2d(0, nc - 2)]);
     arr[idx2d(nc - 1, 0)] = 0.5f * (arr[idx2d(nc - 2, 0)] + arr[idx2d(nc - 1, 1)]);
@@ -221,7 +227,7 @@ static void boundary_reverse(float* arr, int option) {
 //
 // (we are solving for S1 here; this fn will save its result in the provided array)
 // (CG reference: https://people.eecs.berkeley.edu/~demmel/cs267/lecture24/lecture24.html)
-static void poisson2d(float k1, float k2, float* S1, float* S0, int num_iter=20) {
+static void poisson2d(float k1, float k2, float* S1, float* S0, int option, int num_iter=20) {
     // we will assume that S1 is already the initial solution guess (can theoretically be whatever)
     
     int i, j;
@@ -294,7 +300,15 @@ static void poisson2d(float k1, float k2, float* S1, float* S0, int num_iter=20)
         
         // set the boundaries of our current solution to 0 (Neumann condition)
         // set_boundaries2d(S1, 0);
-        boundary_reverse(S1, 0);
+        
+        if (option == -1) {
+            set_boundaries2d(S1, 0);
+        } else if (option == 2) {
+            boundary_reverse(S1, 0);
+            boundary_reverse(S1, 1);
+        } else {
+            boundary_reverse(S1, option);
+        }
     }
 }
 
@@ -302,7 +316,7 @@ static void poisson2d(float k1, float k2, float* S1, float* S0, int num_iter=20)
 static void diffuse(float* S1, float* S0, float ks, float dt, float D[NDIM]) {
     float k1 = -dt * ks / (D[0] * D[0]);
     float k2 = -dt * ks / (D[1] * D[1]);
-    poisson2d(k1, k2, S1, S0);
+    poisson2d(k1, k2, S1, S0, -1);
 }
 
 // perform the projection (again, assuming 2D here)
@@ -327,9 +341,9 @@ static void project(float** U1, float** U0, float dt, float D[NDIM]) {
         }
     }
     
-    boundary_reverse(divergence, 0);
+    boundary_reverse(divergence, -1);
     // set_boundaries2d(divergence, 0);
-    poisson2d(k1, k2, x, divergence);
+    poisson2d(k1, k2, x, divergence, 2);
     
     int idx_i1j, idx_i_1j, idx_ij1, idx_ij_1;
     
@@ -349,8 +363,8 @@ static void project(float** U1, float** U0, float dt, float D[NDIM]) {
     }
     
     // set the boundaries one final time
+    boundary_reverse(U1[0], 0);
     boundary_reverse(U1[1], 1);
-    boundary_reverse(U1[0], 2);
     
     // set_boundaries2d(U1[0], 0);
     // set_boundaries2d(U1[1], 0);
@@ -384,7 +398,7 @@ static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], 
         S1[j] = lin_interp(X0, S0);
     }
     
-    // boundary_reverse(S1, option);
+    boundary_reverse(S1, option);
 }
 
 // considerations:
@@ -397,11 +411,12 @@ void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
         add_force(U0[i], F[i], dt);
     }
     for (int i = 0; i < NDIM; ++i) {
-        transport(U1[i], U0[i], U0, dt, O, D, 2 - i);
+        transport(U1[i], U0[i], U0, dt, O, D, i);
     }
     for (int i = 0; i < NDIM; ++i) {
         diffuse(U0[i], U1[i], visc, dt, D); // notice that U0 and U1 switch
         // (TODO) resolve all of the U0 and U1 switches
+        // (TODO) shouldn't it be U1, U0?
     }
     project(U1, U0, dt, D);
 }
@@ -410,7 +425,7 @@ void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
 void solver::s_step(float* S1, float* S0, float ks, float as, float** U, float source, float dt,
         float O[NDIM], float D[NDIM], int Fy, int Fx) {
     add_force(S0, source, dt);
-    transport(S1, S0, U, dt, O, D, 0);
+    transport(S1, S0, U, dt, O, D, -1);
     // print_fl_array(S1, NUM_CELLS, "before");
     // diffuse(S1, S0, ks, dt, D);
     // dissipate(S1, S0, as, dt);
