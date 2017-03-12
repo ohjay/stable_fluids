@@ -19,28 +19,22 @@ void Fluid::init(float visc, float ks, float as, float dt) {
     (*this).dt = dt;
 
     // set grid attributes
-    int num_cells = 1;
     for (int i = 0; i < NDIM; ++i) {
         O[i] = 0.f;
-        L[i] = 50;
-        N[i] = 50;
-        D[i] = L[i] / N[i];
-        num_cells *= N[i];
+        D[i] = SIDE_LEN / CELLS_PER_SIDE;
     }
 
     // initialize grids [(TODO) don't forget to delete this memory later]
     U0 = new float*[NDIM]; U1 = new float*[NDIM];
     for (int i = 0; i < NDIM; ++i) {
         // for velocity fields (fluid)
-        U0[i] = new float[num_cells];
-        U1[i] = new float[num_cells];
+        U0[i] = new float[NUM_CELLS];
+        U1[i] = new float[NUM_CELLS];
     }
     
     // for density fields (substance)
-    S0 = new float[num_cells];
-    S1 = new float[num_cells];
-    
-    (*this).num_cells = num_cells;
+    S0 = new float[NUM_CELLS];
+    S1 = new float[NUM_CELLS];
 }
 
 void Fluid::step(float F[2], float Ssource) {
@@ -51,18 +45,10 @@ void Fluid::step(float F[2], float Ssource) {
     swap2d(&U1, &U0); swap1d(&S1, &S0);
 
     // perform a velocity step (using U1, U0, visc, F, and dt)
-    solver::v_step(U1, U0, visc, F, dt, num_cells, N, O, D);
+    solver::v_step(U1, U0, visc, F, dt, O, D);
 
     // perform a scalar step (using S1, S0, kS, aS, U1, Ssource, and dt)
-    solver::s_step(S1, S0, ks, as, U1, Ssource, dt, num_cells, N, O, D);
-}
-
-int Fluid::num_cells_x() {
-    return N[1];
-}
-
-int Fluid::num_cells_y() {
-    return N[0];
+    solver::s_step(S1, S0, ks, as, U1, Ssource, dt, O, D);
 }
 
 float Fluid::grid_spacing() {
@@ -70,8 +56,5 @@ float Fluid::grid_spacing() {
 }
 
 float Fluid::S_at(int y, int x) {
-    int xyz[2];
-    xyz[0] = y; xyz[1] = x;
-    
-    return S1[solver::xyz_to_idx(xyz, N)];
+    return S1[solver::idx2d(y, x)];
 }

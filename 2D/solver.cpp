@@ -3,54 +3,123 @@
 using namespace solver;
 using namespace std;
 
-// given a 1D index and the number of cells in each coordinate, sets XYZ to be a 2D/3D position within the array
-// N[NDIM] should be of the form (height, width) in 2D, and (height, width, depth) in 3D
-static void idx_to_xyz(int idx, int N[NDIM], int xyz[NDIM]) {
+// given a 1D index and the number of cells in each coordinate,
+// sets XYZ to be a 2D/3D position within the array
+static void idx_to_xyz(int idx, int xyz[NDIM]) {
     if (NDIM == 2) {
-        xyz[0] = (int) idx / N[1]; // first dimension in a NumPy sense
-        xyz[1] = idx % N[1];
+        xyz[0] = (int) idx / CELLS_PER_SIDE; // first dimension in a NumPy sense
+        xyz[1] = idx % CELLS_PER_SIDE;
     } else if (NDIM == 3) {
-        xyz[0] = (int) idx / (N[0] * N[1]);
-        xyz[1] = (int) idx / N[1];
-        xyz[2] = idx % N[2];
+        xyz[0] = (int) idx / NUM_CELLS;
+        xyz[1] = (int) idx / CELLS_PER_SIDE;
+        xyz[2] = idx % CELLS_PER_SIDE;
     }
 }
 
 // given a 2D/3D position within the array, returns a 1D index
-// N[NDIM] should be of the form (height, width) in 2D, and (height, width, depth) in 3D
-int solver::xyz_to_idx(int xyz[NDIM], int N[NDIM]) {
+int solver::xyz_to_idx(int xyz[NDIM]) {
     int idx = 0;
     int multiplier = 1;
     for (int j = NDIM; --j >= 0;) {
         idx += multiplier * xyz[j];
-        multiplier *= N[j];
+        multiplier *= CELLS_PER_SIDE;
     }
     return idx;
 }
 
+// get flattened index from 2D grid coordinates (y, x)
+// it's kind of annoying to have to use an array every time
+// y is like the column; x is like the row
+int solver::idx2d(int y, int x) {
+    return x + CELLS_PER_SIDE * y;
+}
+
 // add the force field multiplied by the time step to each value of the field
-static void add_force(float* field, float force, float dt, int num_cells) {
-    for (int j = 0; j < num_cells; ++j) {
+static void add_force(float* field, float force, float dt) {
+    for (int j = 0; j < NUM_CELLS; ++j) {
         field[j] += force;
     }
 }
 
+/**********************************************************************/
+/* (TODO) REMOVE THIS IN FAVOR OF THE COMMENTED-OUT BILERP CODE BELOW */
+/**********************************************************************/
+
+// returns the distance between two 2D points
+static float dist2(float point0_y, float point0_x, float point1_y, float point1_x) {
+    return sqrt(pow(point0_y - point1_y, 2) + pow(point0_x - point1_x, 2));
+}
+
 // linearly interpolate value of scalar field S at the location X0
-// we should maybe be using Foster's staggered grid for this
-static float lin_interp(float* X0, float* S, int N[NDIM], int num_cells) {
+static float lin_interp(float* X0, float* S) {
+    float result = 0.0f;
     if (NDIM == 2) {
         int y0 = (int) X0[0];
         int x0 = (int) X0[1];
         
-        float x_result1, x_result2; // upper and lower portions, respectively
-        int xyz[NDIM];
+        // change to bilinear; I don't know what I was thinking (TODO)
+        
+        // interpolation weights
+        float weight_tl = dist2(X0[0], X0[1], (float) y0, (float) x0);
+        float weight_tr = dist2(X0[0], X0[1], (float) y0, (float) x0 + 1);
+        float weight_bl = dist2(X0[0], X0[1], (float) y0 + 1, (float) x0);
+        float weight_br = dist2(X0[0], X0[1], (float) y0 + 1, (float) x0 + 1);
+        
+        // normalize
+        float sum = weight_tl + weight_tr + weight_bl + weight_br;
+        weight_tl /= sum; weight_tr /= sum; weight_bl /= sum; weight_br /= sum;
+        
+        int i, xyz[NDIM]; // NDIM should be 2
         xyz[0] = y0;
-        xyz[1] = x0 + 1; x_result1 =  (X0[1] - x0) * S[xyz_to_idx(xyz, N)];
-        xyz[1] = x0;     x_result1 += (x0 + 1 - X0[1]) * S[xyz_to_idx(xyz, N)];
-        
-        xyz[0] = y0 + 1; x_result2 =  (x0 + 1 - X0[1]) * S[xyz_to_idx(xyz, N)];
-        xyz[1] = x0 + 1; x_result2 += (X0[1] - x0) * S[xyz_to_idx(xyz, N)];
-        
+        xyz[1] = x0;     i = xyz_to_idx(xyz);
+        if (i >= 0 && i < NUM_CELLS) {
+            result += S[i] * weight_tl;
+        }
+        xyz[1] = x0 + 1; i = xyz_to_idx(xyz);
+        if (i >= 0 && i < NUM_CELLS) {
+            result += S[i] * weight_tr;
+        }
+        xyz[0] = y0 + 1; i = xyz_to_idx(xyz);
+        if (i >= 0 && i < NUM_CELLS) {
+            result += S[i] * weight_br;
+        }
+        xyz[1] = x0;     i = xyz_to_idx(xyz);
+        if (i >= 0 && i < NUM_CELLS) {
+            result += S[i] * weight_bl;
+        }
+    } else if (NDIM == 3) {
+        // currently we don't support this (TODO)
+    }
+    return result;
+}
+
+/*
+// linearly interpolate value of scalar field S at the location X0
+// we should maybe be using Foster's staggered grid for this
+static float lin_interp(float* X0, float* S) {
+    if (NDIM == 2) {
+        int y0 = (int) X0[0];
+        int x0 = (int) X0[1];
+
+        // X0 is the actual point
+        // x0 is the integer x-coordinate to the left
+        // y0 is the integer y-coordinate to the top
+
+        float top_left = S[idx2d(y0, x0)];
+        float top_right = (x0 + 1 < CELLS_PER_SIDE) ? S[idx2d(y0, x0 + 1)] : 0.0f;
+        float bottom_left = (y0 + 1 < CELLS_PER_SIDE) ? S[idx2d(y0 + 1, x0)] : 0.0f;
+        float bottom_right = (y0 + 1 < CELLS_PER_SIDE && x0 + 1 < CELLS_PER_SIDE) ?
+                S[idx2d(y0 + 1, x0 + 1)] : 0.0f;
+
+        float tl_weight = (x0 + 1 < CELLS_PER_SIDE) ? x0 + 1 - X0[1] : 1.0f;
+        float bl_weight = (y0 + 1 < CELLS_PER_SIDE && x0 + 1 < CELLS_PER_SIDE) ?
+                x0 + 1 - X0[1] : 1.0f;
+        float br_weight = (y0 + 1 < CELLS_PER_SIDE) ? X0[1] - x0 : 1.0f;
+
+        float x_result1, x_result2; // upper and lower portions, respectively
+        x_result1 = tl_weight * top_left + (X0[1] - x0) * top_right;
+        x_result2 = bl_weight * bottom_left + br_weight * bottom_right;
+
         return (X0[0] - y0) * x_result2 + (y0 + 1 - X0[0]) * x_result1;
     } else if (NDIM == 3) {
         // (TODO) add trilinear interpolation code here
@@ -60,17 +129,18 @@ static float lin_interp(float* X0, float* S, int N[NDIM], int num_cells) {
         return 0.0f;
     }
 }
+*/
 
 // trace a path starting at X through the field U over a time -dt; store result in X0
-static void trace_particle(float* X, float** U, float dt, float* X0, int N[NDIM], int num_cells) {
+static void trace_particle(float* X, float** U, float dt, float* X0) {
     if (NDIM == 2) {
         float f_mid[NDIM];
-        f_mid[0] = X[0] - dt / 2.0f * lin_interp(X, U[0], N, num_cells); // U[0][idx] = y-dir @ index IDX
-        f_mid[1] = X[1] - dt / 2.0f * lin_interp(X, U[1], N, num_cells);
+        f_mid[0] = X[0] - dt / 2.0f * lin_interp(X, U[0]); // U[0][idx] = y-dir @ index IDX
+        f_mid[1] = X[1] - dt / 2.0f * lin_interp(X, U[1]);
         
         // interpolate in order to evaluate U at the midpoint
-        X0[0] = X[0] - dt * lin_interp(f_mid, U[0], N, num_cells);
-        X0[1] = X[1] - dt * lin_interp(f_mid, U[1], N, num_cells);
+        X0[0] = X[0] - dt * lin_interp(f_mid, U[0]);
+        X0[1] = X[1] - dt * lin_interp(f_mid, U[1]);
     } else if (NDIM == 3) {
         // currently we don't support this (TODO)
     }
@@ -78,182 +148,189 @@ static void trace_particle(float* X, float** U, float dt, float* X0, int N[NDIM]
     // (TODO) add adaptive step size? (vary dt)
 }
 
-// sparse linear solver for the equation Ax = b (method: conjugate gradient)
-static float* solve_lin(Eigen::SparseMatrix<float, Eigen::RowMajor> A, float* b_, int n) {
-    // (TODO) switch everything to Eigen Vectors (?)
-    // (TODO) write this yourself ?? Can start with Jacobi or Gauss-Seidel
+// adds two arrays ("vectors") together
+template <class Type, size_t size>
+static void add(const Type(&a)[size], const Type(&b)[size], Type(&result)[size]) {
+    std::transform(a, a + size, b, result, std::plus<Type>());
+}
+
+// subtracts the second vector from the first
+template <class Type, size_t size>
+static void subtract(const Type(&a)[size], const Type(&b)[size], Type(&result)[size]) {
+    std::transform(a, a + size, b, result, std::minus<Type>());
+}
+
+// for reference:
+// to compute the dot product of two vectors A and B, use
+// std::inner_product(std::begin(a), std::end(a), std::begin(b), 0.0);
+
+// set the boundaries of the array ARR (with dimensions N) to VAL
+static void set_boundaries2d(float* arr, float val) {
+    // r = 0, r = N[0] - 1
+    for (int c = 0; c < CELLS_PER_SIDE; ++c) {
+        arr[idx2d(0, c)] = val;
+        arr[idx2d(CELLS_PER_SIDE - 1, c)] = val;
+    }
     
-    Eigen::VectorXf x(n);
-    Eigen::Map<Eigen::VectorXf> b(b_, n);
-    Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower|Eigen::Upper> cg;
-    cg.compute(A);
-    x = cg.solve(b);
+    // c = 0, c = N[1] - 1
+    for (int r = 1; r < CELLS_PER_SIDE - 1; ++r) {
+        arr[idx2d(r, 0)] = val;
+        arr[idx2d(r, CELLS_PER_SIDE - 1)] = val;
+    }
+}
+
+// solves discretized 2d poisson equation using conjugate gradient
+// finite difference version of eqn is as follows:
+// 
+//   K1 (S1[i + 1, j] - 2 * S1[i, j] + S1[i - 1, j])
+// + K2 (S1[i, j + 1] - 2 * S1[i, j] + S1[i, j - 1])
+// + S1[i, j]
+// = S0[i, j]
+//
+// (we are solving for S1 here; this fn will save its result in the provided array)
+// (CG reference: https://people.eecs.berkeley.edu/~demmel/cs267/lecture24/lecture24.html)
+static void poisson2d(float k1, float k2, float* S1, float* S0, int num_iter=20) {
+    // we will assume that S1 is already the initial solution guess (can theoretically be whatever)
     
-    return x.data();
+    int i, j;
+    
+    // r = b - Ax
+    // compute Ax, aka A * S1, and subtract it from b (aka S0) at the same time in order to arrive at r
+    float r[NUM_CELLS];
+    for (i = 0; i < CELLS_PER_SIDE; ++i) { // row
+        for (j = 0; j < CELLS_PER_SIDE; ++j) { // column
+            float Ax_ij;
+            int idx_ij = idx2d(i, j);
+            Ax_ij = (1 - 2 * k1 - 2 * k2) * S1[idx_ij];
+            Ax_ij += k1 * S1[idx2d((i + 1) % CELLS_PER_SIDE, j)];
+            Ax_ij += k2 * S1[idx2d((i - 1) % CELLS_PER_SIDE, j)];
+            Ax_ij += k1 * S1[idx2d(i, (j + 1) % CELLS_PER_SIDE)];
+            Ax_ij += k2 * S1[idx2d(i, (j - 1) % CELLS_PER_SIDE)];
+            
+            r[idx_ij] = S0[idx_ij] - Ax_ij;
+        }
+    }
+    
+    // p = r
+    float p[NUM_CELLS];
+    std::copy(std::begin(r), std::end(r), std::begin(p));
+    
+    // new_r = r
+    float new_r[NUM_CELLS];
+    std::copy(std::begin(r), std::end(r), std::begin(new_r));
+    
+    // for some # of iterations:
+    for (int _ = 0; _ < num_iter; ++_) {
+        // compute v = Ap
+        float v[NUM_CELLS];
+        for (i = 0; i < CELLS_PER_SIDE; ++i) { // row
+            for (j = 0; j < CELLS_PER_SIDE; ++j) { // column
+                int idx_ij = idx2d(i, j);
+                v[idx_ij] = (1 - 2 * k1 - 2 * k2) * p[idx_ij];
+                v[idx_ij] += k1 * p[idx2d((i + 1) % CELLS_PER_SIDE, j)];
+                v[idx_ij] += k2 * p[idx2d((i - 1) % CELLS_PER_SIDE, j)];
+                v[idx_ij] += k1 * p[idx2d(i, (j + 1) % CELLS_PER_SIDE)];
+                v[idx_ij] += k2 * p[idx2d(i, (j - 1) % CELLS_PER_SIDE)];
+            }
+        }
+        
+        // compute a = dot(r, r) / dot(p, v)
+        float rTr = std::inner_product(std::begin(r), std::end(r), std::begin(r), 0.0);
+        float pTv = std::inner_product(std::begin(p), std::end(p), std::begin(v), 0.0);
+        float a = rTr / pTv;
+        
+        // x = x + a * p
+        for (i = 0; i < NUM_CELLS; ++i) {
+            S1[i] = S1[i] + a * p[i];
+        }
+        
+        // new_r = new_r - av (compute the updated residual)
+        for (i = 0; i < NUM_CELLS; ++i) {
+            new_r[i] -= a * v[i];
+        }
+        
+        // g = dot(new_r, new_r) / dot(r, r)
+        float g = std::inner_product(std::begin(new_r), std::end(new_r), std::begin(new_r), 0.0) - rTr;
+        
+        // p = new_r + g * p
+        for (i = 0; i < NUM_CELLS; ++i) {
+            p[i] = new_r[i] + g * p[i];
+        }
+        
+        // r = new_r
+        memcpy(r, new_r, sizeof(r));
+        
+        // set the boundaries of our current solution to 0 (Neumann condition)
+        set_boundaries2d(S1, 0);
+    }
 }
 
 // solve for the diffusion (currently only for 2D)
-static void diffuse(float* S1, float* S0, float ks, float dt, int num_cells,
-        int N[NDIM], float D[NDIM]) {
-    // construct the A matrix (n^2 * n^2)
-    // in each row, I believe there should be five nonzero entries
-    
-    float neighbor_multiplier = -dt * ks / (D[0] * D[0]);
-    float center_multiplier = 1.0f - (4 * dt * ks) / (D[0] * D[0]);
-    
-    Eigen::SparseMatrix<float, Eigen::RowMajor> A(num_cells, num_cells);
-    A.reserve(num_cells * 5);
-    
-    int xyz_intermed[NDIM];
-    int curr_xyz[NDIM];
-    int col;
-    
-    // handle boundary conditions somehow (currently neglected)
-    for (int row = 1; row < num_cells - 1; ++row) {
-        idx_to_xyz(row, N, curr_xyz);
-        
-        // 1. (i - 1, j) contribution
-        xyz_intermed[0] = curr_xyz[0] - 1;
-        xyz_intermed[1] = curr_xyz[1];
-        if (xyz_intermed[0] >= 0) {
-            col = xyz_to_idx(xyz_intermed, N);
-            A.insert(row, col) = neighbor_multiplier;
-        }
-        
-        // 2. (i + 1, j) contribution
-        xyz_intermed[0] = curr_xyz[0] + 1;
-        if (xyz_intermed[0] <= N[0] - 2) {
-            col = xyz_to_idx(xyz_intermed, N);
-            A.insert(row, col) = neighbor_multiplier;
-        }
-        
-        // 3. (i, j - 1) contribution
-        xyz_intermed[0] = curr_xyz[0];
-        xyz_intermed[1] = curr_xyz[1] - 1;
-        if (xyz_intermed[1] >= 0) {
-            col = xyz_to_idx(xyz_intermed, N);
-            A.insert(row, col) = neighbor_multiplier;
-        }
-        
-        // 4. (i, j + 1) contribution
-        xyz_intermed[1] = curr_xyz[1] + 1;
-        if (xyz_intermed[1] <= N[1] - 2) {
-            col = xyz_to_idx(xyz_intermed, N);
-            A.insert(row, col) = neighbor_multiplier;
-        }
-        
-        // 5. (i, j) contribution
-        A.insert(row, row) = center_multiplier;
-    }
-    
-    // store the result in S1
-    float* diffusion_result = solve_lin(A, S0, num_cells);
-    for (int i = 0; i < num_cells; ++i) {
-        S1[i] = diffusion_result[i];
-    }
+static void diffuse(float* S1, float* S0, float ks, float dt, float D[NDIM]) {
+    float k1 = -dt * ks / (D[0] * D[0]);
+    float k2 = -dt * ks / (D[1] * D[1]);
+    poisson2d(k1, k2, S1, S0);
 }
 
-// perform the projection
-static void project(float** U1, float** U0, float dt, int num_cells, int N[NDIM], float D[NDIM]) {
-    // again, assuming 2D here
-    // again #2: in the P matrix, there should be five nonzero entries per row
-    // except at boundaries
+// perform the projection (again, assuming 2D here)
+static void project(float** U1, float** U0, float dt, float D[NDIM]) {
+    int i, j, idx_ij;
     
-    Eigen::SparseMatrix<float, Eigen::RowMajor> P(num_cells, num_cells);
-    P.reserve(num_cells * 5);
+    float k1 = 1.0f / (D[0] * D[0]);
+    float k2 = 1.0f / (D[1] * D[1]);
     
-    float b[num_cells];
+    // construct initial guess for the solution (x) as a bunch of 0s
+    float x[NUM_CELLS] = {};
     
-    int xyz_intermed[NDIM];
-    int curr_xyz[NDIM];
-    int col;
-    
-    // we construct the P matrix and the b vector below
-    // (TODO) look at boundaries
-    for (int row = 1; row < num_cells - 1; ++row) {
-        idx_to_xyz(row, N, curr_xyz);
-        b[row] = 0.f;
-        
-        // 1. (i - 1, j)
-        xyz_intermed[0] = curr_xyz[0] - 1;
-        xyz_intermed[1] = curr_xyz[1];
-        if (xyz_intermed[0] >= 0) {
-            col = xyz_to_idx(xyz_intermed, N);
-            P.insert(row, col) = 1.0f;
-            b[row] -= U0[1][col]; // - U_{i-1,j}
+    // compute the divergence of the velocity field, to be used as b
+    float divergence[NUM_CELLS];
+    for (i = 0; i < CELLS_PER_SIDE; ++i) { // row
+        for (j = 0; j < CELLS_PER_SIDE; ++j) { // column
+            idx_ij = idx2d(i, j);
+            divergence[idx_ij] = ((U0[0][idx2d((i + 1) % CELLS_PER_SIDE, j)]
+                    - U0[0][idx2d((i - 1) % CELLS_PER_SIDE, j)]) / D[0]
+                    + (U0[1][idx2d(i, (j + 1) % CELLS_PER_SIDE)]
+                    - U0[1][idx2d(i, (j - 1) % CELLS_PER_SIDE)]) / D[1]) * 0.5f;
         }
-        
-        // 2. (i + 1, j)
-        xyz_intermed[0] = curr_xyz[0] + 1;
-        if (xyz_intermed[0] <= N[0] - 2) {
-            col = xyz_to_idx(xyz_intermed, N);
-            P.insert(row, col) = 1.0f;
-            b[row] += U0[1][col]; // + U_{i+1,j}
-        }
-        
-        // 3. (i, j - 1)
-        xyz_intermed[0] = curr_xyz[0];
-        xyz_intermed[1] = curr_xyz[1] - 1;
-        if (xyz_intermed[1] >= 0) {
-            col = xyz_to_idx(xyz_intermed, N);
-            P.insert(row, col) = 1.0f;
-            b[row] -= U0[0][col]; // - U_{i,j-1}
-        }
-        
-        // 4. (i, j + 1)
-        xyz_intermed[1] = curr_xyz[1] + 1;
-        if (xyz_intermed[1] <= N[1] - 2) {
-            col = xyz_to_idx(xyz_intermed, N);
-            P.insert(row, col) = 1.0f;
-            b[row] += U0[0][col]; // + U_{i,j+1}
-        }
-        
-        // 5. (i, j)
-        P.insert(row, row) = -4.0f;
-        
-        b[row] *= D[0]; // multiply by h
     }
     
-    float* S = solve_lin(P, b, num_cells);
-    int ij[2], i1j[2], i_1j[2], ij1[2], ij_1[2]; // "i1j" is (i + 1, j)
-    // likewise, "i_1j" is (i - 1, j)
+    set_boundaries2d(divergence, 0);
+    poisson2d(k1, k2, x, divergence);
     
-    int idx_ij, idx_i1j, idx_i_1j, idx_ij1, idx_ij_1;
+    int idx_i1j, idx_i_1j, idx_ij1, idx_ij_1;
     
     // subtract the gradient from the previous solution
-    for (int r = 1; r < N[0] - 1; ++r) { // boundaries
-        for (int c = 1; c < N[1] - 1; ++c) {
-            ij[0]   = r;     ij[1]   = c;
-            i1j[0]  = r + 1; i1j[1]  = c;
-            i_1j[0] = r - 1; i_1j[1] = c;
-            ij1[0]  = r;     ij1[1]  = c + 1;
-            ij_1[0] = r;     ij_1[1] = c - 1;
+    // x is the solution here; it's called S in the paper
+    for (i = 0; i < CELLS_PER_SIDE; ++i) { // row
+        for (j = 0; j < CELLS_PER_SIDE; ++j) { // column
+            idx_ij   = idx2d(i, j);
+            idx_i1j  = idx2d((i + 1) % CELLS_PER_SIDE, j);
+            idx_i_1j = idx2d((i - 1) % CELLS_PER_SIDE, j);
+            idx_ij1  = idx2d(i, (j + 1) % CELLS_PER_SIDE);
+            idx_ij_1 = idx2d(i, (j - 1) % CELLS_PER_SIDE);
             
-            idx_ij   = xyz_to_idx(ij,   N);
-            idx_i1j  = xyz_to_idx(i1j,  N);
-            idx_i_1j = xyz_to_idx(i_1j, N);
-            idx_ij1  = xyz_to_idx(ij1,  N);
-            idx_ij_1 = xyz_to_idx(ij_1, N);
-            
-            U1[1][idx_ij] = U0[1][idx_ij] - 0.5f * (S[idx_i1j] - S[idx_i_1j]) / D[1];
-            U1[0][idx_ij] = U0[0][idx_ij] - 0.5f * (S[idx_ij1] - S[idx_ij_1]) / D[0];
+            U1[0][idx_ij] = U0[0][idx_ij] - 0.5f * (x[idx_i1j] - x[idx_i_1j]) / D[0];
+            U1[1][idx_ij] = U0[1][idx_ij] - 0.5f * (x[idx_ij1] - x[idx_ij_1]) / D[1];
         }
     }
+    
+    // set the boundaries one final time
+    set_boundaries2d(U1[0], 0);
+    set_boundaries2d(U0[0], 0);
 }
 
 // divide each element of S0 by (1 + dt * as) and store in S1
-static void dissipate(float* S1, float* S0, float as, float dt, int num_cells) {
-    for (int j = 0; j < num_cells; ++j) {
+static void dissipate(float* S1, float* S0, float as, float dt) {
+    for (int j = 0; j < NUM_CELLS; ++j) {
         S1[j] = S0[j] / (1.f + dt * as);
     }
 }
 
 // accounts for movement of substance due to velocity field
-static void transport(float* S1, float* S0, float** U, float dt, int num_cells,
-        int N[NDIM], float O[NDIM], float D[NDIM]) {
-    for (int j = 0; j < num_cells; ++j) {
+static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], float D[NDIM]) {
+    for (int j = 0; j < NUM_CELLS; ++j) {
         int xyz[NDIM];
-        idx_to_xyz(j, N, xyz);
+        idx_to_xyz(j, xyz);
 
         // add 0.5 to each coordinate in order to get to the center of the cell
         for (int k = 0; k < NDIM; ++k) {
@@ -266,8 +343,8 @@ static void transport(float* S1, float* S0, float** U, float dt, int num_cells,
         }
 
         float X0[NDIM];
-        trace_particle(X, U, -dt, X0, N, num_cells);
-        S1[j] = lin_interp(X0, S0, N, num_cells);
+        trace_particle(X, U, -dt, X0);
+        S1[j] = lin_interp(X0, S0);
     }
 }
 
@@ -275,29 +352,29 @@ static void transport(float* S1, float* S0, float** U, float dt, int num_cells,
 // should I move these methods to the Fluid class? (probably, I think) - oj
 
 // velocity field solver
-void solver::v_step(float** U1, float** U0, float visc, float* F, float dt, int num_cells,
-        int N[NDIM], float O[NDIM], float D[NDIM]) {
+void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
+        float O[NDIM], float D[NDIM]) {
     for (int i = 0; i < NDIM; ++i) {
         float scaled_force = F[i] * dt;
-        add_force(U0[i], scaled_force, dt, num_cells);
+        add_force(U0[i], scaled_force, dt);
     }
     for (int i = 0; i < NDIM; ++i) {
-        transport(U1[i], U0[i], U0, dt, num_cells, N, O, D);
+        transport(U1[i], U0[i], U0, dt, O, D);
     }
     for (int i = 0; i < NDIM; ++i) {
-        // diffuse(U1[i], U0[i], visc, dt, num_cells, N, D); // notice that U0 and U1 switch
+        // diffuse(U1[i], U0[i], visc, dt, D); // notice that U0 and U1 switch
         // (TODO) resolve all of the U0 and U1 switches
     }
-    // project(U1, U0, dt, num_cells, N, D);
+    project(U1, U0, dt, D);
 }
 
 // scalar field solver
 void solver::s_step(float* S1, float* S0, float ks, float as, float** U, float source, float dt,
-        int num_cells, int N[NDIM], float O[NDIM], float D[NDIM]) {
-    add_force(S0, source, dt, num_cells);
-    transport(S1, S0, U, dt, num_cells, N, O, D);
-    // print_fl_array(S1, num_cells, "before");
-    // diffuse(S1, S0, ks, dt, num_cells, N, D);
-    // dissipate(S1, S0, as, dt, num_cells);
-    // print_fl_array(S1, num_cells, "after");
+        float O[NDIM], float D[NDIM]) {
+    add_force(S0, source, dt);
+    transport(S1, S0, U, dt, O, D);
+    // print_fl_array(S1, NUM_CELLS, "before");
+    // diffuse(S1, S0, ks, dt, D);
+    // dissipate(S1, S0, as, dt);
+    // print_fl_array(S1, NUM_CELLS, "after");
 }

@@ -22,8 +22,8 @@ void display(void) {
     float alpha = 0.03;
     float x, y, c00, c01, c10, c11;
     
-    int h = fluid.num_cells_y();
-    int w = fluid.num_cells_x();
+    int h = CELLS_PER_SIDE;
+    int w = CELLS_PER_SIDE;
     float vsize = fluid.grid_spacing();
     
     glBegin(GL_QUADS);

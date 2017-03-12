@@ -16,10 +16,7 @@ private:
     
     float *S0, *S1; // scalar density grids
     float O[NDIM]; // origin
-    int L[NDIM]; // length of each side
-    int N[NDIM]; // number of cells in each coordinate
     float D[NDIM]; // size of each voxel
-    int num_cells; // total number of cells in each grid
 public:
     void init(float visc, float ks, float as, float dt);
     void step(float F[2], float Ssource);
@@ -33,9 +30,6 @@ public:
 
     // speed of interactivity
     float dt; // time step
-    
-    int num_cells_x(); // get number of cells in the x-direction
-    int num_cells_y(); // get number of cells in the y-direction
     
     float grid_spacing(); // get maximum voxel size in any dimension
     
