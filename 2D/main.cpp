@@ -20,28 +20,28 @@ void init(void) {
 void display(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glPushMatrix();
-    
+
     // draw the density grid
     float alpha = 0.03;
     float x, y, c00, c01, c10, c11;
-    
+
     int h = CELLS_PER_SIDE;
     int w = CELLS_PER_SIDE;
     float vsize = fluid.grid_spacing();
-    
+
     glBegin(GL_QUADS);
-    
+
     for (int r = 0; r < h; ++r) {
         y = (r - 0.5f) * vsize;
         for (int c = 0; c < w; ++c) {
             x = (c - 0.5f) * vsize;
-            
+
             // (TODO) these 1500s should not be here; they're just here for debugging help
             c00 = fluid.S_at(r, c)  / 1500.0f;
             c01 = fluid.S_at(r, c + 1) / 1500.0f;
             c10 = fluid.S_at(r + 1, c) / 1500.0f;
             c11 = fluid.S_at(r + 1, c + 1) / 1500.0f;
-            
+
             glColor4f(c11, c11, c11, alpha); glVertex2f((x + vsize) / 50.0f - 0.5f, (y + vsize) / 50.0f - 0.5f);
             glColor4f(c01, c01, c01, alpha); glVertex2f(x / 50.0f - 0.5f, (y + vsize) / 50.0f - 0.5f);
             glColor4f(c00, c00, c00, alpha); glVertex2f(x / 50.0f - 0.5f, y / 50.0f - 0.5f);
@@ -68,7 +68,7 @@ void mouse(int button, int state, int x, int y) {
                 F[0] += 12.0f;
                 F[1] += 15.0f;
                 Ssource += 120.0f;
-                
+
                 // (TODO) should really use SIDE_LEN
                 Fy = (int) (((float) (window_width - y) / window_width) * CELLS_PER_SIDE);
                 Fx = (int) (((float) x / window_width) * CELLS_PER_SIDE);
@@ -109,22 +109,22 @@ int main(int argc, char* argv[]) {
     glutInitWindowSize(window_width, window_height);
     glutInitWindowPosition(100, 100);
     glutCreateWindow("Stable Fluids");
-    
+
     init();
     fluid.init(0.1f, 0.2f, 0.3f, 0.4f);
-    
+
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutMouseFunc(mouse);
     glutMotionFunc(motion);
     glutKeyboardFunc(keyboard);
     glutIdleFunc(idle);
-    
+
     try {
         glutMainLoop();
     } catch (const char* msg) {
         std::cout << "[+] Program terminated." << std::endl;
     }
-    
+
     return 0;
 }
