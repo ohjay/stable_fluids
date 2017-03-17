@@ -35,6 +35,10 @@ public:
 
     float S_at(int y, int x); // scalar value at 2D location in grid
 
+    float U10_at(int y, int x);
+
+    float U11_at(int y, int x);
+
     void add_S_at(int y, int x, float source); // add source amount of fluid at 2D location
 
     void cleanup(void);

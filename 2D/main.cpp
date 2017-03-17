@@ -13,14 +13,14 @@ float cr, cg, cb, alpha;
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
     // F[0] = -6.0f; F[1] = 6.0f;
-    F[0] = 0.0f; F[1] = 0.0f;
+    F[0] = 1.0f; F[1] = 0.0f;
     Fy = CELLS_PER_SIDE / 2;
     Fx = CELLS_PER_SIDE / 2;
     Ssource = 0.0f;
     cr = 0.7, cg = 0.2, cb = 0.9;
     alpha = 0.03;
     paused = false;
-    add_amount = 600.0f;
+    add_amount = 200.0f;
 }
 
 // everything we need in order to redraw the scene
@@ -44,10 +44,13 @@ void display(void) {
             x = (c + 0.5f) * vsize;
 
             // (TODO) these 1500s should not be here; they're just here for debugging help
-            c00 = fluid.S_at(r, c) / 500.0f;
-            c01 = fluid.S_at(r, c + 1) / 500.0f;
-            c10 = fluid.S_at(r + 1, c) / 500.0f;
-            c11 = fluid.S_at(r + 1, c + 1) / 500.0f;
+            // c00 = fluid.S_at(r, c) / 500.0f;
+            // c01 = c10 = c11 = c00;
+            c00 = c01 = fluid.U10_at(r, c) / 500.0f;
+            c10 = c11 = fluid.U11_at(r, c) / 500.0f;
+            // c01 = fluid.S_at(r, c + 1) / 500.0f;
+            // c10 = fluid.S_at(r + 1, c) / 500.0f;
+            // c11 = fluid.S_at(r + 1, c + 1) / 500.0f;
 
             glColor4f(cr*c11, cg*c11, cb*c11, alpha); glVertex2f((x + vsize) / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
             glColor4f(cr*c01, cg*c01, cb*c01, alpha); glVertex2f(x / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
@@ -104,10 +107,10 @@ void keyboard(unsigned char key, int x, int y) {
             paused = !paused;
             break;
         case '=':
-            add_amount += 200.0f;
+            add_amount += 100.0f;
             break;
         case '-':
-            add_amount = max(0.0f, add_amount - 200.0f);
+            add_amount = max(0.0f, add_amount - 100.0f);
             break;
         default:
             break;

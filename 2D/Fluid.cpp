@@ -41,7 +41,6 @@ void Fluid::step(float F[2], float Ssource, int Fy, int Fx) {
     // handle display and user interaction
     // get forces F and sources Ssource from UI
     // throw "exit";
-
     // swap U1 and U0, swap S1 and S0
     swap2d(&U1, &U0); swap1d(&S1, &S0);
 
@@ -58,6 +57,14 @@ float Fluid::grid_spacing() {
 
 float Fluid::S_at(int y, int x) {
     return S1[solver::idx2d(y, x)];
+}
+
+float Fluid::U10_at(int y, int x) {
+    return U1[0][solver::idx2d(y, x)] * 1000;
+}
+
+float Fluid::U11_at(int y, int x) {
+    return U1[1][solver::idx2d(y, x)] * 1000;
 }
 
 void Fluid::add_S_at(int y, int x, float source) {
