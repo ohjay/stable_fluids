@@ -5,17 +5,22 @@ int window_height = 600;
 
 Fluid fluid;
 float F[2];
-float Ssource;
+float Ssource, add_amount;
 int Fy, Fx;
-bool left_mouse_down;
+bool left_mouse_down, paused;
+float cr, cg, cb, alpha;
 
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
-    F[0] = -6.0f; F[1] = 6.0f;
-    // F[0] = -0.0f; F[1] = 0.0f;
+    // F[0] = -6.0f; F[1] = 6.0f;
+    F[0] = 0.0f; F[1] = 0.0f;
     Fy = CELLS_PER_SIDE / 2;
     Fx = CELLS_PER_SIDE / 2;
-    Ssource = 200.0f;
+    Ssource = 0.0f;
+    cr = 0.7, cg = 0.2, cb = 0.9;
+    alpha = 0.03;
+    paused = false;
+    add_amount = 600.0f;
 }
 
 // everything we need in order to redraw the scene
@@ -24,7 +29,6 @@ void display(void) {
     glPushMatrix();
 
     // draw the density grid
-    float alpha = 0.03;
     float x, y, c00, c01, c10, c11;
 
     int h = CELLS_PER_SIDE;
@@ -40,15 +44,15 @@ void display(void) {
             x = (c + 0.5f) * vsize;
 
             // (TODO) these 1500s should not be here; they're just here for debugging help
-            c00 = fluid.S_at(r, c) / 1000.0f;
-            c01 = fluid.S_at(r, c + 1) / 1000.0f;
-            c10 = fluid.S_at(r + 1, c) / 1000.0f;
-            c11 = fluid.S_at(r + 1, c + 1) / 1000.0f;
+            c00 = fluid.S_at(r, c) / 500.0f;
+            c01 = fluid.S_at(r, c + 1) / 500.0f;
+            c10 = fluid.S_at(r + 1, c) / 500.0f;
+            c11 = fluid.S_at(r + 1, c + 1) / 500.0f;
 
-            glColor4f(c11, 0.5f * c11, c11, alpha); glVertex2f((x + vsize) / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
-            glColor4f(c01, 0.5f * c01, c01, alpha); glVertex2f(x / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
-            glColor4f(c00, 0.5f * c00, c00, alpha); glVertex2f(x / half_side - 1.0f, y / half_side - 1.0f);
-            glColor4f(c10, 0.5f * c10, c10, alpha); glVertex2f((x + vsize) / half_side - 1.0f, y / half_side - 1.0f);
+            glColor4f(cr*c11, cg*c11, cb*c11, alpha); glVertex2f((x + vsize) / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
+            glColor4f(cr*c01, cg*c01, cb*c01, alpha); glVertex2f(x / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
+            glColor4f(cr*c00, cg*c00, cb*c00, alpha); glVertex2f(x / half_side - 1.0f, y / half_side - 1.0f);
+            glColor4f(cr*c10, cg*c10, cb*c10, alpha); glVertex2f((x + vsize) / half_side - 1.0f, y / half_side - 1.0f);
         }
     }
 
@@ -96,6 +100,15 @@ void keyboard(unsigned char key, int x, int y) {
             // do something here, like quit
             throw "exit";
             break;
+        case ' ':
+            paused = !paused;
+            break;
+        case '=':
+            add_amount += 200.0f;
+            break;
+        case '-':
+            add_amount = max(0.0f, add_amount - 200.0f);
+            break;
         default:
             break;
     }
@@ -104,8 +117,8 @@ void keyboard(unsigned char key, int x, int y) {
 // render the next frame of our simulation
 void idle(void) {
     if (left_mouse_down)
-        fluid.add_S_at(Fy, Fx, 500.0f);
-    fluid.step(F, Ssource, Fy, Fx);
+        fluid.add_S_at(Fy, Fx, add_amount);
+    if (!paused) fluid.step(F, Ssource, Fy, Fx);
     if (F[0] != 0) { F[0] = 0; }
     if (F[1] != 0) { F[1] = 0; }
     if (Ssource != 0) { Ssource = 0; }

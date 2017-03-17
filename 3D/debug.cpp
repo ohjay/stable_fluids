@@ -13,6 +13,7 @@ void print_fl_array(float* arr, int n, string label="") {
 
 void print_fl_array_perc(float* arr, int n, float k, string label="") {
     label = (label.empty()) ? "" : "[" + label + "] ";
+    cout << "---" << endl << label;
 
     for (int i = 0; i < n; i += (int) 1 / k) {
         cout << arr[i] << " ";

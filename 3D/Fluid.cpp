@@ -28,20 +28,19 @@ void Fluid::init(float visc, float ks, float as, float dt) {
     U0 = new float*[NDIM]; U1 = new float*[NDIM];
     for (int i = 0; i < NDIM; ++i) {
         // for velocity fields (fluid)
-        U0[i] = new float[NUM_CELLS];
-        U1[i] = new float[NUM_CELLS];
+        U0[i] = new float[NUM_CELLS]();
+        U1[i] = new float[NUM_CELLS]();
     }
 
     // for density fields (substance)
-    S0 = new float[NUM_CELLS];
-    S1 = new float[NUM_CELLS];
+    S0 = new float[NUM_CELLS]();
+    S1 = new float[NUM_CELLS]();
 }
 
 void Fluid::step(float F[2], float Ssource, int Fy, int Fx) {
     // handle display and user interaction
     // get forces F and sources Ssource from UI
-    print_fl_array_perc(U0[0], NUM_CELLS, 0.02f, "U00");
-    print_fl_array_perc(U0[1], NUM_CELLS, 0.02f, "U01");
+    // throw "exit";
 
     // swap U1 and U0, swap S1 and S0
     swap2d(&U1, &U0); swap1d(&S1, &S0);
