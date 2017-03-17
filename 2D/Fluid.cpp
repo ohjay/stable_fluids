@@ -28,18 +28,19 @@ void Fluid::init(float visc, float ks, float as, float dt) {
     U0 = new float*[NDIM]; U1 = new float*[NDIM];
     for (int i = 0; i < NDIM; ++i) {
         // for velocity fields (fluid)
-        U0[i] = new float[NUM_CELLS];
-        U1[i] = new float[NUM_CELLS];
+        U0[i] = new float[NUM_CELLS]();
+        U1[i] = new float[NUM_CELLS]();
     }
-    
+
     // for density fields (substance)
-    S0 = new float[NUM_CELLS];
-    S1 = new float[NUM_CELLS];
+    S0 = new float[NUM_CELLS]();
+    S1 = new float[NUM_CELLS]();
 }
 
 void Fluid::step(float F[2], float Ssource, int Fy, int Fx) {
     // handle display and user interaction
     // get forces F and sources Ssource from UI
+    // throw "exit";
 
     // swap U1 and U0, swap S1 and S0
     swap2d(&U1, &U0); swap1d(&S1, &S0);
@@ -57,4 +58,19 @@ float Fluid::grid_spacing() {
 
 float Fluid::S_at(int y, int x) {
     return S1[solver::idx2d(y, x)];
+}
+
+void Fluid::add_S_at(int y, int x, float source) {
+    S1[solver::idx2d(y, x)] += source;
+}
+
+void Fluid::cleanup(void) {
+    for (int i = 0; i < NDIM; ++i) {
+        delete[] U0[i];
+        delete[] U1[i];
+    }
+    delete[] U0;
+    delete[] U1;
+    delete[] S0;
+    delete[] S1;
 }

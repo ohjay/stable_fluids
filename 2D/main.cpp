@@ -1,19 +1,26 @@
 #include "Fluid.h"
 
-int window_width = 800;
-int window_height = 800;
+int window_width = 600;
+int window_height = 600;
 
 Fluid fluid;
 float F[2];
-float Ssource;
+float Ssource, add_amount;
 int Fy, Fx;
+bool left_mouse_down, paused;
+float cr, cg, cb, alpha;
 
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
-    F[0] = -2.0f; F[1] = 3.0f;
+    // F[0] = -6.0f; F[1] = 6.0f;
+    F[0] = 0.0f; F[1] = 0.0f;
     Fy = CELLS_PER_SIDE / 2;
     Fx = CELLS_PER_SIDE / 2;
-    Ssource = 200.0f;
+    Ssource = 0.0f;
+    cr = 0.7, cg = 0.2, cb = 0.9;
+    alpha = 0.03;
+    paused = false;
+    add_amount = 600.0f;
 }
 
 // everything we need in order to redraw the scene
@@ -22,30 +29,30 @@ void display(void) {
     glPushMatrix();
 
     // draw the density grid
-    float alpha = 0.03;
     float x, y, c00, c01, c10, c11;
 
     int h = CELLS_PER_SIDE;
     int w = CELLS_PER_SIDE;
     float vsize = fluid.grid_spacing();
+    float half_side = CELLS_PER_SIDE / 2;
 
     glBegin(GL_QUADS);
 
     for (int r = 0; r < h; ++r) {
-        y = (r - 0.5f) * vsize;
+        y = (r + 0.5f) * vsize;
         for (int c = 0; c < w; ++c) {
-            x = (c - 0.5f) * vsize;
+            x = (c + 0.5f) * vsize;
 
             // (TODO) these 1500s should not be here; they're just here for debugging help
-            c00 = fluid.S_at(r, c)  / 1500.0f;
-            c01 = fluid.S_at(r, c + 1) / 1500.0f;
-            c10 = fluid.S_at(r + 1, c) / 1500.0f;
-            c11 = fluid.S_at(r + 1, c + 1) / 1500.0f;
+            c00 = fluid.S_at(r, c) / 500.0f;
+            c01 = fluid.S_at(r, c + 1) / 500.0f;
+            c10 = fluid.S_at(r + 1, c) / 500.0f;
+            c11 = fluid.S_at(r + 1, c + 1) / 500.0f;
 
-            glColor4f(c11, c11, c11, alpha); glVertex2f((x + vsize) / 50.0f - 0.5f, (y + vsize) / 50.0f - 0.5f);
-            glColor4f(c01, c01, c01, alpha); glVertex2f(x / 50.0f - 0.5f, (y + vsize) / 50.0f - 0.5f);
-            glColor4f(c00, c00, c00, alpha); glVertex2f(x / 50.0f - 0.5f, y / 50.0f - 0.5f);
-            glColor4f(c10, c10, c10, alpha); glVertex2f((x + vsize) / 50.0f - 0.5f, y / 50.0f - 0.5f);
+            glColor4f(cr*c11, cg*c11, cb*c11, alpha); glVertex2f((x + vsize) / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
+            glColor4f(cr*c01, cg*c01, cb*c01, alpha); glVertex2f(x / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
+            glColor4f(cr*c00, cg*c00, cb*c00, alpha); glVertex2f(x / half_side - 1.0f, y / half_side - 1.0f);
+            glColor4f(cr*c10, cg*c10, cb*c10, alpha); glVertex2f((x + vsize) / half_side - 1.0f, y / half_side - 1.0f);
         }
     }
 
@@ -63,16 +70,18 @@ void reshape(int w, int h) {
 void mouse(int button, int state, int x, int y) {
     switch (button) {
         case GLUT_LEFT_BUTTON:
-            if (state == GLUT_DOWN) {
-                // do something here, like create a new object
-                F[0] += 12.0f;
-                F[1] += 15.0f;
-                Ssource += 120.0f;
-
-                // (TODO) should really use SIDE_LEN
-                Fy = (int) (((float) (window_width - y) / window_width) * CELLS_PER_SIDE);
-                Fx = (int) (((float) x / window_width) * CELLS_PER_SIDE);
-            }
+            left_mouse_down = state == GLUT_DOWN;
+            // if (state == GLUT_DOWN) {
+            //     // do something here, like create a new object
+            //     // F[0] += 12.0f;
+            //     // F[1] += 15.0f;
+            //     // Ssource += 120.0f;
+            //
+            //     // (TODO) should really use SIDE_LEN
+            //     Fy = (int) (((float) (window_width - y) / window_width) * CELLS_PER_SIDE);
+            //     Fx = (int) (((float) x / window_width) * CELLS_PER_SIDE);
+            //     fluid.add_S_at(Fy, Fx, 500.0f);
+            // }
             break;
         default:
             break;
@@ -81,6 +90,8 @@ void mouse(int button, int state, int x, int y) {
 
 void motion(int x, int y) {
     // do something here, like apply a force
+    Fy = (int) (((float) (window_width - y) / window_width) * CELLS_PER_SIDE);
+    Fx = (int) (((float) x / window_width) * CELLS_PER_SIDE);
 }
 
 void keyboard(unsigned char key, int x, int y) {
@@ -89,6 +100,15 @@ void keyboard(unsigned char key, int x, int y) {
             // do something here, like quit
             throw "exit";
             break;
+        case ' ':
+            paused = !paused;
+            break;
+        case '=':
+            add_amount += 200.0f;
+            break;
+        case '-':
+            add_amount = max(0.0f, add_amount - 200.0f);
+            break;
         default:
             break;
     }
@@ -96,7 +116,9 @@ void keyboard(unsigned char key, int x, int y) {
 
 // render the next frame of our simulation
 void idle(void) {
-    fluid.step(F, Ssource, Fy, Fx);
+    if (left_mouse_down)
+        fluid.add_S_at(Fy, Fx, add_amount);
+    if (!paused) fluid.step(F, Ssource, Fy, Fx);
     if (F[0] != 0) { F[0] = 0; }
     if (F[1] != 0) { F[1] = 0; }
     if (Ssource != 0) { Ssource = 0; }
@@ -107,7 +129,7 @@ int main(int argc, char* argv[]) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(window_width, window_height);
-    glutInitWindowPosition(100, 100);
+    glutInitWindowPosition(400, 100);
     glutCreateWindow("Stable Fluids");
 
     init();
@@ -116,6 +138,7 @@ int main(int argc, char* argv[]) {
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutMouseFunc(mouse);
+    glutPassiveMotionFunc(motion);
     glutMotionFunc(motion);
     glutKeyboardFunc(keyboard);
     glutIdleFunc(idle);
@@ -123,6 +146,7 @@ int main(int argc, char* argv[]) {
     try {
         glutMainLoop();
     } catch (const char* msg) {
+        fluid.cleanup();
         std::cout << "[+] Program terminated." << std::endl;
     }
 

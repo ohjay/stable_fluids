@@ -13,7 +13,7 @@ private:
     // U0[0][i] is the y-direction at index i, U0[1][i] is the x-direction at index i
     // if 3D, U[2][i] is the z-direction at index i
     // purportedly row-major order within the second dimension
-    
+
     float *S0, *S1; // scalar density grids
     float O[NDIM]; // origin
     float D[NDIM]; // size of each voxel
@@ -30,8 +30,12 @@ public:
 
     // speed of interactivity
     float dt; // time step
-    
+
     float grid_spacing(); // get maximum voxel size in any dimension
-    
+
     float S_at(int y, int x); // scalar value at 2D location in grid
+
+    void add_S_at(int y, int x, float source); // add source amount of fluid at 2D location
+
+    void cleanup(void);
 };
