@@ -14,3 +14,4 @@ clean:
 	$(RM) sim
 
 refresh: clean sim
+fresh: refresh
