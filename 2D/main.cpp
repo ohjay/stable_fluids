@@ -34,7 +34,7 @@ void display(void) {
     int h = CELLS_PER_SIDE;
     int w = CELLS_PER_SIDE;
     float vsize = fluid.grid_spacing();
-    float half_side = CELLS_PER_SIDE / 2;
+    float half_side = CELLS_PER_SIDE;
 
     glBegin(GL_QUADS);
 
@@ -52,10 +52,10 @@ void display(void) {
             // c10 = fluid.S_at(r + 1, c) / 500.0f;
             // c11 = fluid.S_at(r + 1, c + 1) / 500.0f;
 
-            glColor4f(cr*c11, cg*c11, cb*c11, alpha); glVertex2f((x + vsize) / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
-            glColor4f(cr*c01, cg*c01, cb*c01, alpha); glVertex2f(x / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
-            glColor4f(cr*c00, cg*c00, cb*c00, alpha); glVertex2f(x / half_side - 1.0f, y / half_side - 1.0f);
-            glColor4f(cr*c10, cg*c10, cb*c10, alpha); glVertex2f((x + vsize) / half_side - 1.0f, y / half_side - 1.0f);
+            glColor4f(cr*c11, cg*c11, cb*c11, alpha); glVertex2f((x + vsize) / half_side - 0.5f, (y + vsize) / half_side - 0.5f);
+            glColor4f(cr*c01, cg*c01, cb*c01, alpha); glVertex2f(x / half_side - 0.5f, (y + vsize) / half_side - 0.5f);
+            glColor4f(cr*c00, cg*c00, cb*c00, alpha); glVertex2f(x / half_side - 0.5f, y / half_side - 0.5f);
+            glColor4f(cr*c10, cg*c10, cb*c10, alpha); glVertex2f((x + vsize) / half_side - 0.5f, y / half_side - 0.5f);
         }
     }
 
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
     glutCreateWindow("Stable Fluids");
 
     init();
-    fluid.init(0.1f, 0.2f, 0.3f, 0.5f);
+    fluid.init(VISC, KS, AS, DT);
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
@@ -150,7 +150,7 @@ int main(int argc, char* argv[]) {
         glutMainLoop();
     } catch (const char* msg) {
         fluid.cleanup();
-        std::cout << "[+] Program terminated." << std::endl;
+        std::cout << "[-] Program terminated." << std::endl;
     }
 
     return 0;

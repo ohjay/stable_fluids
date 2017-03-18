@@ -3,19 +3,6 @@
 using namespace solver;
 using namespace std;
 
-// given a 1D index and the number of cells in each coordinate,
-// sets XYZ to be a 2D/3D position within the array
-static void idx_to_xyz(int idx, int xyz[NDIM]) {
-    if (NDIM == 2) {
-        xyz[0] = (int) idx / CELLS_PER_SIDE; // first dimension in a NumPy sense
-        xyz[1] = idx % CELLS_PER_SIDE;
-    } else if (NDIM == 3) {
-        xyz[0] = (int) idx / NUM_CELLS;
-        xyz[1] = (int) idx / CELLS_PER_SIDE;
-        xyz[2] = idx % CELLS_PER_SIDE;
-    }
-}
-
 // get flattened index from 2D grid coordinates (y, x)
 // it's kind of annoying to have to use an array every time
 // y is like the column; x is like the row
@@ -41,15 +28,6 @@ static void add_force_at(float* field, float force, float dt, int y, int x) {
             field[idx2d(i, j)] += force * dt;
         }
     }
-}
-
-/**********************************************************************/
-/* (TODO) REMOVE THIS IN FAVOR OF THE COMMENTED-OUT BILERP CODE BELOW */
-/**********************************************************************/
-
-// returns the distance between two 2D points
-static float dist2(float point0_y, float point0_x, float point1_y, float point1_x) {
-    return sqrt(pow(point0_y - point1_y, 2) + pow(point0_x - point1_x, 2));
 }
 
 // linearly interpolate value of scalar field S at the location X0
@@ -101,18 +79,6 @@ static void trace_particle(float* X, float** U, float dt, float* X0) {
         // X0[i] = f_mid[i] + dt / 2.0f * lin_interp(f_mid, U[i]);
     }
     // (TODO) add adaptive step size? (vary dt)
-}
-
-// adds two arrays ("vectors") together
-template <class Type, size_t size>
-static void add(const Type(&a)[size], const Type(&b)[size], Type(&result)[size]) {
-    std::transform(a, a + size, b, result, std::plus<Type>());
-}
-
-// subtracts the second vector from the first
-template <class Type, size_t size>
-static void subtract(const Type(&a)[size], const Type(&b)[size], Type(&result)[size]) {
-    std::transform(a, a + size, b, result, std::minus<Type>());
 }
 
 // for reference:
@@ -311,19 +277,17 @@ static void dissipate(float* S1, float* S0, float as, float dt) {
 
 // accounts for movement of substance due to velocity field
 static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], float D[NDIM], int option) {
-    for (int j = 0; j < NUM_CELLS; ++j) {
-        int xyz[NDIM];
-        idx_to_xyz(j, xyz);
+    for (int i = 0; i < CELLS_PER_SIDE; ++i) {
+        for (int j = 0; j < CELLS_PER_SIDE; ++j) {
+            // add 0.5 to each coordinate in order to get to the center of the cell
+            float X[NDIM];
+            X[0] = O[0] + (0.5f + i) * D[0];
+            X[1] = O[1] + (0.5f + j) * D[1];
 
-        // add 0.5 to each coordinate in order to get to the center of the cell
-        float X[NDIM];
-        for (int m = 0; m < NDIM; ++m) {
-            X[m] = O[m] + (0.5f + xyz[m]) * D[m];
+            float X0[NDIM];
+            trace_particle(X, U, -dt, X0);
+            S1[j] = lin_interp(X0, S0);
         }
-
-        float X0[NDIM];
-        trace_particle(X, U, -dt, X0);
-        S1[j] = lin_interp(X0, S0);
     }
     // boundary_reverse(S1, option);
 }
