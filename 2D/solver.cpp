@@ -60,10 +60,11 @@ static float lin_interp(float* X0, float* S) {
         X0[1] = fmin(CELLS_PER_SIDE * 1.0f, fmax(0.0f, X0[1]));
         int y0 = (int) X0[0];
         int x0 = (int) X0[1];
-        if (X0[0] - y0 < 0.5f) y0--;
-        if (X0[1] - x0 < 0.5f) x0--;
-        int y1 = fmin(CELLS_PER_SIDE - 1, y0 + 1);
-        int x1 = fmin(CELLS_PER_SIDE - 1, x0 + 1);
+        double r;
+        if (modf(X0[0], &r) < 0.5f) y0--;
+        if (modf(X0[1], &r) < 0.5f) x0--;
+        int y1 = min(CELLS_PER_SIDE - 1, y0 + 1);
+        int x1 = min(CELLS_PER_SIDE - 1, x0 + 1);
         y0 = max(0, y0); x0 = max(0, x0);
         // X0 is the actual point
         // x0 is the integer x-coordinate to the left
@@ -74,28 +75,12 @@ static float lin_interp(float* X0, float* S) {
         float bottom_left = S[idx2d(y1, x0)];
         float bottom_right = S[idx2d(y1, x1)];
         float lw = fabs(x1 + 0.5f - X0[1]);
-        float rw = fabs(X0[1] - (x0 + 0.5f));
+        float rw = (lw != 0.0f) ? fabs(X0[1] - (x0 + 0.5f)) : 1.0f;
         float tw = fabs(y1 + 0.5f - X0[0]);
-        float bw = fabs(X0[0] - (y0 + 0.5f));
-        return tw * (lw * top_left + rw * top_right) + bw * (lw * bottom_left + rw * bottom_right);
-
-
-        // float top_left = S[idx2d(y0, x0)];
-        // float top_right = (x0 + 1 < CELLS_PER_SIDE) ? S[idx2d(y0, x0 + 1)] : 0.0f;
-        // float bottom_left = (y0 + 1 < CELLS_PER_SIDE) ? S[idx2d(y0 + 1, x0)] : 0.0f;
-        // float bottom_right = (y0 + 1 < CELLS_PER_SIDE && x0 + 1 < CELLS_PER_SIDE) ?
-        //         S[idx2d(y0 + 1, x0 + 1)] : 0.0f;
-
-        // float tl_weight = (x0 + 1 < CELLS_PER_SIDE) ? x0 + 1 - X0[1] : 1.0f;
-        // float bl_weight = (y0 + 1 < CELLS_PER_SIDE && x0 + 1 < CELLS_PER_SIDE) ?
-        //         x0 + 1 - X0[1] : 1.0f;
-        // float br_weight = (y0 + 1 < CELLS_PER_SIDE) ? X0[1] - x0 : 1.0f;
-        //
-        // float x_result1, x_result2; // upper and lower portions, respectively
-        // x_result1 = tl_weight * top_left + (X0[1] - x0) * top_right;
-        // x_result2 = bl_weight * bottom_left + br_weight * bottom_right;
-        //
-        // return (X0[0] - y0) * x_result2 + (y0 + 1 - X0[0]) * x_result1;
+        float bw = (tw != 0.0f) ? fabs(X0[0] - (y0 + 0.5f)) : 1.0f;
+        float result = tw * (lw * top_left + rw * top_right) + bw * (lw * bottom_left + rw * bottom_right);
+        if (isnan(result)) throw "exit";
+        return result;
     } else if (NDIM == 3) {
         // (TODO) add trilinear interpolation code here
         return 0.0f;
@@ -108,17 +93,13 @@ static float lin_interp(float* X0, float* S) {
 
 // trace a path starting at X through the field U over a time -dt; store result in X0
 static void trace_particle(float* X, float** U, float dt, float* X0) {
-    if (NDIM == 2) {
-        float f_mid[NDIM];
-        f_mid[0] = X[0] - dt / 2.0f * lin_interp(X, U[0]); // U[0][idx] = y-dir @ index IDX
-        f_mid[1] = X[1] - dt / 2.0f * lin_interp(X, U[1]);
+    float f_mid[NDIM];
+    for (int i = 0; i < NDIM; ++i) {
+        X0[i] = X[i] + dt * lin_interp(X, U[i]);
+        // f_mid[i] = X[i] + dt / 2.0f * lin_interp(X, U[i]); // U[0][idx] = y-dir @ index IDX
         // interpolate in order to evaluate U at the midpoint
-        X0[0] = X[0] - dt * lin_interp(f_mid, U[0]);
-        X0[1] = X[1] - dt * lin_interp(f_mid, U[1]);
-    } else if (NDIM == 3) {
-        // currently we don't support this (TODO)
+        // X0[i] = f_mid[i] + dt / 2.0f * lin_interp(f_mid, U[i]);
     }
-
     // (TODO) add adaptive step size? (vary dt)
 }
 
@@ -333,12 +314,8 @@ static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], 
     for (int j = 0; j < NUM_CELLS; ++j) {
         int xyz[NDIM];
         idx_to_xyz(j, xyz);
-        // add 0.5 to each coordinate in order to get to the center of the cell
-        // this didn't work because it's an int array :P
-        // for (int k = 0; k < NDIM; ++k) {
-        //     xyz[k] += 0.5f;
-        // }
 
+        // add 0.5 to each coordinate in order to get to the center of the cell
         float X[NDIM];
         for (int m = 0; m < NDIM; ++m) {
             X[m] = O[m] + (0.5f + xyz[m]) * D[m];
@@ -348,7 +325,7 @@ static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], 
         trace_particle(X, U, -dt, X0);
         S1[j] = lin_interp(X0, S0);
     }
-    boundary_reverse(S1, option);
+    // boundary_reverse(S1, option);
 }
 
 // considerations:
@@ -367,6 +344,20 @@ void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
         diffuse(U0[i], U1[i], visc, dt, D); // notice that U0 and U1 switch
         // (TODO) resolve all of the U0 and U1 switches
         // (TODO) shouldn't it be U1, U0?
+        /*
+        explanation! so it's something like this:
+        w4 = proj(w3)
+        w3 = diff(w2)
+        w2 = trans(w1)
+        w1 = add_f(w0)
+        w0 starts off as u0, and then u0 is modified to become w1
+        then u1 becomes w2 by transporting u0
+        we need w3 to be based on w2, and we don't need w1 anymore
+        so we use u0 as a buffer to store w3
+        and then we project, setting u1 to w4 based on u0 = w3
+        so we're not really diffusing u0 based on u1, it's just to avoid \
+        doing a lot of swaps of u0 and u1 or use temporary buffers
+        */
     }
     project(U1, U0, dt, D);
 }
