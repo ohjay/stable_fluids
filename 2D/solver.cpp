@@ -16,17 +16,6 @@ static void idx_to_xyz(int idx, int xyz[NDIM]) {
     }
 }
 
-// given a 2D/3D position within the array, returns a 1D index
-int solver::xyz_to_idx(int xyz[NDIM]) {
-    int idx = 0;
-    int multiplier = 1;
-    for (int j = NDIM; --j >= 0;) {
-        idx += multiplier * xyz[j];
-        multiplier *= CELLS_PER_SIDE;
-    }
-    return idx;
-}
-
 // get flattened index from 2D grid coordinates (y, x)
 // it's kind of annoying to have to use an array every time
 // y is like the column; x is like the row
@@ -61,49 +50,6 @@ static void add_force_at(float* field, float force, float dt, int y, int x) {
 // returns the distance between two 2D points
 static float dist2(float point0_y, float point0_x, float point1_y, float point1_x) {
     return sqrt(pow(point0_y - point1_y, 2) + pow(point0_x - point1_x, 2));
-}
-
-// linearly interpolate value of scalar field S at the location X0
-static float lin_interp1(float* X0, float* S) {
-    float result = 0.0f;
-    if (NDIM == 2) {
-        int y0 = (int) X0[0];
-        int x0 = (int) X0[1];
-
-        // change to bilinear; I don't know what I was thinking (TODO)
-
-        // interpolation weights
-        float weight_tl = dist2(X0[0], X0[1], (float) y0, (float) x0);
-        float weight_tr = dist2(X0[0], X0[1], (float) y0, (float) x0 + 1);
-        float weight_bl = dist2(X0[0], X0[1], (float) y0 + 1, (float) x0);
-        float weight_br = dist2(X0[0], X0[1], (float) y0 + 1, (float) x0 + 1);
-
-        // normalize
-        float sum = weight_tl + weight_tr + weight_bl + weight_br;
-        weight_tl /= sum; weight_tr /= sum; weight_bl /= sum; weight_br /= sum;
-
-        int i, xyz[NDIM]; // NDIM should be 2
-        xyz[0] = y0;
-        xyz[1] = x0;     i = xyz_to_idx(xyz);
-        if (i >= 0 && i < NUM_CELLS) {
-            result += S[i] * weight_tl;
-        }
-        xyz[1] = x0 + 1; i = xyz_to_idx(xyz);
-        if (i >= 0 && i < NUM_CELLS) {
-            result += S[i] * weight_tr;
-        }
-        xyz[0] = y0 + 1; i = xyz_to_idx(xyz);
-        if (i >= 0 && i < NUM_CELLS) {
-            result += S[i] * weight_br;
-        }
-        xyz[1] = x0;     i = xyz_to_idx(xyz);
-        if (i >= 0 && i < NUM_CELLS) {
-            result += S[i] * weight_bl;
-        }
-    } else if (NDIM == 3) {
-        // currently we don't support this (TODO)
-    }
-    return result;
 }
 
 // linearly interpolate value of scalar field S at the location X0
