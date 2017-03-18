@@ -13,7 +13,7 @@ float cr, cg, cb, alpha;
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
     // F[0] = -6.0f; F[1] = 6.0f;
-    F[0] = 1.0f; F[1] = 0.0f;
+    F[0] = 2.0f; F[1] = 0.0f;
     Fy = CELLS_PER_SIDE / 2;
     Fx = CELLS_PER_SIDE / 2;
     Ssource = 0.0f;
@@ -44,8 +44,8 @@ void display(void) {
             x = (c + 0.5f) * vsize;
 
             // (TODO) these 1500s should not be here; they're just here for debugging help
-            // c00 = fluid.S_at(r, c) / 500.0f;
-            // c01 = c10 = c11 = c00;
+            c00 = fluid.S_at(r, c) / 500.0f;
+            c01 = c10 = c11 = c00;
             c00 = c01 = fluid.U10_at(r, c) / 500.0f;
             c10 = c11 = fluid.U11_at(r, c) / 500.0f;
             // c01 = fluid.S_at(r, c + 1) / 500.0f;
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
     glutCreateWindow("Stable Fluids");
 
     init();
-    fluid.init(0.1f, 0.2f, 0.3f, 0.4f);
+    fluid.init(0.1f, 0.2f, 0.3f, 0.5f);
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);

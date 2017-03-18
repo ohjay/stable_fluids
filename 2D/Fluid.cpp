@@ -40,7 +40,7 @@ void Fluid::init(float visc, float ks, float as, float dt) {
 void Fluid::step(float F[2], float Ssource, int Fy, int Fx) {
     // handle display and user interaction
     // get forces F and sources Ssource from UI
-    // throw "exit";
+
     // swap U1 and U0, swap S1 and S0
     swap2d(&U1, &U0); swap1d(&S1, &S0);
 
