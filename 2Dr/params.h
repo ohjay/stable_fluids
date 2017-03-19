@@ -21,7 +21,8 @@
 #define DISSIPATION 0.3
 
 /* Simulation parameters */
-#define DT 0.1
+#define NUM_ITER  30
+#define DT       0.1
 
 /* Computed */
 #define num_cells_uy ((CELLS_Y + 1) * CELLS_X)

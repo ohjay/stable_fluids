@@ -89,6 +89,112 @@ static void transport(float* S1, float* S0, float* U_y, float* U_x, int key) {
     }
 }
 
+static float dot(float* vec0, float* vec1, int size) {
+    float result = 0.0f;
+    for (int i = 0; i < size; ++i) {
+        result += vec0[i] * vec1[i];
+    }
+    return result;
+}
+
+static bool done = true;
+static bool done2 = false;
+
+static void poisson2d(float k1, float k2, float* S1, float* S0, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+    int y, x, i;
+    float pTv, rTr, a, nrTnr, g;
+
+    // r = b - Ax
+    float r[num_cells[key]];
+    for (y = 0; y < cells_y; ++y) {
+        for (x = 0; x < cells_x; ++x) {
+            float Ax_yx;
+            int idx_yx = idx2d(y, x);
+            Ax_yx = (1 - 2 * k1 - 2 * k2) * S1[idx_yx]
+                  + k1 * ((y < cells_y - 2) ? S1[idx2d(y + 1, x)] : 0.0f)
+                  + k2 * ((y > 1) ?           S1[idx2d(y - 1, x)] : 0.0f)
+                  + k1 * ((x < cells_x - 2) ? S1[idx2d(y, x + 1)] : 0.0f)
+                  + k2 * ((x > 1) ?           S1[idx2d(y, x - 1)] : 0.0f);
+
+            r[idx_yx] = S0[idx_yx] - Ax_yx;
+        }
+    }
+
+    // p = r
+    float p[num_cells[key]];
+    memcpy(p, r, sizeof(p));
+
+    // new_r = r
+    float new_r[num_cells[key]];
+    memcpy(new_r, r, sizeof(new_r));
+
+    float v[num_cells[key]];
+    for (int _ = 0; _ < NUM_ITER; ++_) {
+        // v = Ap
+        for (y = 0; y < cells_y; ++y) {
+            for (x = 0; x < cells_x; ++x) {
+                int idx_yx = idx2d(y, x);
+                v[idx_yx] = (1 - 2 * k1 - 2 * k2) * p[idx_yx]
+                          + k1 * ((y < cells_y - 2) ? p[idx2d(y + 1, x)] : 0.0f)
+                          + k2 * ((y > 1) ?           p[idx2d(y - 1, x)] : 0.0f)
+                          + k1 * ((x < cells_x - 2) ? p[idx2d(y, x + 1)] : 0.0f)
+                          + k2 * ((x > 1) ?           p[idx2d(y, x - 1)] : 0.0f);
+            }
+        }
+
+        if (!done) { cout << _ << "\nv[40]: " << v[40] << endl; }
+
+        // a = dot(r, r) / dot(p, v)
+        pTv = dot(p, v, num_cells[key]);
+        if (!done) { cout << "pTv: " << pTv << endl; }
+        rTr = dot(r, r, num_cells[key]);
+        if (!done) { cout << "rTr: " << rTr << endl; }
+        a = (pTv != 0.0f) ? rTr / pTv : 0.0f;
+        if (!done) { cout << "a: " << a << endl; }
+
+        // x += a * p; new_r -= av
+        for (i = 0; i < num_cells[key]; ++i) {
+            S1[i] += a * p[i];
+            if (fabs(v[i]) < 21) {
+                new_r[i] -= a * v[i];
+            }
+
+            // if (!done && fabs(new_r[i]) > 21) { cout << "i: " << i << ": " << v[i] << " / of " << num_cells[key] - 1 << endl; }
+        }
+
+        if (!done) { cout << "S1[40]: " << S1[40] << endl; }
+        if (!done) { cout << "new_r[40]: " << new_r[40] << endl; }
+
+        // g = dot(new_r, new_r) / dot(r, r)
+        nrTnr = dot(new_r, new_r, num_cells[key]);
+        if (!done) { cout << "nrTnr: " << nrTnr << endl; }
+        g = (rTr != 0.0f) ? nrTnr / rTr : 0.0f;
+        if (!done) { cout << "g: " << g << endl; }
+
+        // p = new_r + g * p
+        for (i = 0; i < num_cells[key]; ++i) {
+            p[i] = new_r[i] + g * p[i];
+        }
+
+        if (!done) { cout << "p[40]: " << p[40] << endl; }
+
+        // r = new_r
+        memcpy(r, new_r, sizeof(r));
+
+        if (!done) { cout << "r[40]: " << r[40] << "\n\n ---\n\n" << endl; }
+        if (_ >= 10) { done = true; }
+    }
+}
+
+static void diffuse(float* S1, float* S0, int key) {
+    memset(S1, 0, sizeof(float) * num_cells[key]);
+    float k1 = -DT * DIFFUSION;
+    float k2 = -DT * DIFFUSION;
+    poisson2d(k1, k2, S1, S0, key);
+}
+
 void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float force_y, float force_x) {
     // add forces
     add_force(U0_y, force_y * DT, 1);
@@ -98,22 +204,18 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float fo
     transport(U1_y, U0_y, U0_y, U0_x, 1);
     transport(U1_x, U0_x, U0_y, U0_x, 2);
 
-    /*
     // diffuse
-    diffuse(U0_y, U1_y, 1);
-    diffuse(U0_x, U1_x, 2);
+    // diffuse(U0_y, U1_y, 1);
+    // if (!done2) { done = false; done2 = true; }
+    // diffuse(U0_x, U1_x, 2);
 
     // ensure incompressibility via pressure correction
-    project(U1_y, U1_x, U0_y, U0_x);
-    */
+    // project(U1_y, U1_x, U0_y, U0_x);
 }
 
 void solver::s_step(float* S1, float* S0, float* U_y, float* U_x, float source) {
     add_force(S0, source * DT, 0);
     transport(S1, S0, U_y, U_x, 0);
-
-    /*
-    diffuse(S0, S1, 0);
-    dissipate(S1, S0);
-    */
+    // diffuse(S0, S1, 0);
+    // dissipate(S1, S0);
 }
