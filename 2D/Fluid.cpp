@@ -38,6 +38,7 @@ void Fluid::init(float visc, float ks, float as, float dt) {
 }
 
 void Fluid::step(float F[2], float Ssource, int Fy, int Fx) {
+    sleep(1);
     // handle display and user interaction
     // get forces F and sources Ssource from UI
 

@@ -298,9 +298,11 @@ static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], 
 // velocity field solver
 void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
         float O[NDIM], float D[NDIM]) {
+    print_fl_array_perc(U1[0], NUM_CELLS, 1.0f, "a");
     for (int i = 0; i < NDIM; ++i) {
         add_force(U0[i], F[i], dt);
     }
+    print_fl_array_perc(U0[0], NUM_CELLS, 1.0f, "b");
     for (int i = 0; i < NDIM; ++i) {
         transport(U1[i], U0[i], U0, dt, O, D, i);
     }

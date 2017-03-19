@@ -2,6 +2,7 @@
 // #include <eigen3/Eigen/IterativeLinearSolvers> // symlink or install into /usr/local/include/
 #include <iostream>
 #include <numeric>
+#include <unistd.h>
 
 #include "params.h"
 #include "debug.h"

@@ -34,7 +34,7 @@ void display(void) {
     int h = CELLS_PER_SIDE;
     int w = CELLS_PER_SIDE;
     float vsize = fluid.grid_spacing();
-    float half_side = CELLS_PER_SIDE;
+    float half_side = CELLS_PER_SIDE / 2.0f;
 
     glBegin(GL_QUADS);
 
@@ -46,16 +46,16 @@ void display(void) {
             // (TODO) these 1500s should not be here; they're just here for debugging help
             c00 = fluid.S_at(r, c) / 500.0f;
             c01 = c10 = c11 = c00;
-            c00 = c01 = fluid.U10_at(r, c) / 500.0f;
-            c10 = c11 = fluid.U11_at(r, c) / 500.0f;
+            c00 = c01 = fluid.U10_at(r, c);
+            c10 = c11 = fluid.U11_at(r, c);
             // c01 = fluid.S_at(r, c + 1) / 500.0f;
             // c10 = fluid.S_at(r + 1, c) / 500.0f;
             // c11 = fluid.S_at(r + 1, c + 1) / 500.0f;
 
-            glColor4f(cr*c11, cg*c11, cb*c11, alpha); glVertex2f((x + vsize) / half_side - 0.5f, (y + vsize) / half_side - 0.5f);
-            glColor4f(cr*c01, cg*c01, cb*c01, alpha); glVertex2f(x / half_side - 0.5f, (y + vsize) / half_side - 0.5f);
-            glColor4f(cr*c00, cg*c00, cb*c00, alpha); glVertex2f(x / half_side - 0.5f, y / half_side - 0.5f);
-            glColor4f(cr*c10, cg*c10, cb*c10, alpha); glVertex2f((x + vsize) / half_side - 0.5f, y / half_side - 0.5f);
+            glColor4f(cr*c11, cg*c11, cb*c11, alpha); glVertex2f((x + vsize) / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
+            glColor4f(cr*c01, cg*c01, cb*c01, alpha); glVertex2f(x / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
+            glColor4f(cr*c00, cg*c00, cb*c00, alpha); glVertex2f(x / half_side - 1.0f, y / half_side - 1.0f);
+            glColor4f(cr*c10, cg*c10, cb*c10, alpha); glVertex2f((x + vsize) / half_side - 1.0f, y / half_side - 1.0f);
         }
     }
 
@@ -122,6 +122,7 @@ void idle(void) {
     if (left_mouse_down)
         fluid.add_S_at(Fy, Fx, add_amount);
     if (!paused) fluid.step(F, Ssource, Fy, Fx);
+    sleep(1);
     if (F[0] != 0) { F[0] = 0; }
     if (F[1] != 0) { F[1] = 0; }
     if (Ssource != 0) { Ssource = 0; }
