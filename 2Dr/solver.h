@@ -2,9 +2,6 @@
 #include <iostream>
 #include <numeric>
 
-#define _GNU_SOURCE
-#include <fenv.h>
-
 #include "params.h"
 
 namespace solver {

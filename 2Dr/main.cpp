@@ -22,12 +22,13 @@ void init(void) {
 
     left_mouse_down = false;
     paused = false;
-    add_amount = 200.0f;
+
     cr = 0.7;
     cg = 0.9;
     cb = 0.3;
     alpha = 0.03;
 
+    add_amount = 0.5f;
     source = 10.0f;
     force_y = -5.0f;
     force_x = 5.0f;
@@ -46,19 +47,19 @@ void display(void) {
     for (int y = 0; y < cells_y; ++y) {
         for (int x = 0; x < cells_x; ++x) {
             if (DISPLAY_KEY == 0) {
-                color = fluid.S_at(y, x) / 200.0f;
+                color = fluid.S_at(y, x);
             } else if (DISPLAY_KEY == 1) {
-                color = fluid.Uy_at(y, x) / 200.0f;
+                color = fluid.Uy_at(y, x);
             } else if (DISPLAY_KEY == 2) {
-                color = fluid.Ux_at(y, x) / 200.0f;
+                color = fluid.Ux_at(y, x);
             }
 
-            cout << color << endl;
+            // cout << color << endl;
             // if (!isnan(color)) { cout << y << ", " << x << endl; }
 
             glColor4f(cr * color, cg * color, cb * color, alpha);
-            glRectf((x - 0.5f) / cells_x - 0.5f, (y - 0.5f) / cells_y - 0.5f,
-                    (x + 0.5f) / cells_x - 0.5f, (y + 0.5f) / cells_y - 0.5f);
+            glRectf((x - 1.0f) * 2.0f / (cells_x - 2) - 1.0f, (y - 0.5f) * 2.0f / (cells_y - 2) - 1.0f,
+                    (x + 1.0f) * 2.0f / (cells_x - 2) - 1.0f, (y + 0.5f) * 2.0f / (cells_y - 2) - 1.0f);
         }
     }
 
@@ -87,8 +88,8 @@ void motion(int x, int y) {
     int cells_y = (DISPLAY_KEY == 1) ? CELLS_Y + 1 : CELLS_Y;
     int cells_x = (DISPLAY_KEY == 2) ? CELLS_X + 1 : CELLS_X;
 
-    mouse_y = (int) (((float) (window_height - y) / window_height) * cells_y);
-    mouse_x = (int) (((float) x / window_width) * cells_x);
+    mouse_y = (int) (((float) (window_height - y) / window_height) * (cells_y - 2));
+    mouse_x = (int) (((float) x / window_width) * (cells_x - 2));
 }
 
 void keyboard(unsigned char key, int x, int y) {
@@ -100,10 +101,29 @@ void keyboard(unsigned char key, int x, int y) {
             paused = !paused;
             break;
         case '=':
-            add_amount += 100.0f;
+            add_amount += 0.1f;
             break;
         case '-':
-            add_amount = fmax(0.0f, add_amount - 100.0f);
+            add_amount = fmax(0.0f, add_amount - 0.1f);
+            break;
+        default:
+            break;
+    }
+}
+
+void special_keyboard(int key, int x, int y) {
+    switch (key) {
+        case GLUT_KEY_UP:
+            force_y += 1.0f;
+            break;
+        case GLUT_KEY_DOWN:
+            force_y -= 1.0f;
+            break;
+        case GLUT_KEY_LEFT:
+            force_x -= 1.0f;
+            break;
+        case GLUT_KEY_RIGHT:
+            force_x += 1.0f;
             break;
         default:
             break;
@@ -138,10 +158,10 @@ int main(int argc, char* argv[]) {
     glutPassiveMotionFunc(motion);
     glutMotionFunc(motion);
     glutKeyboardFunc(keyboard);
+    glutSpecialFunc(special_keyboard);
     glutIdleFunc(idle);
 
     try {
-        feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
         glutMainLoop();
     } catch (const char* msg) {
         // fluid.cleanup();

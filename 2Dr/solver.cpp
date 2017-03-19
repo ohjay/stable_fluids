@@ -113,37 +113,31 @@ static void boundary_reverse(float* field, int key) {
     int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
     int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
 
-    int idx_outer, idx_inner;
+    int (*idxf)(int, int);
+    idxf = (key == 2) ? &idx2dx : &idx2d;
+
     for (int y = 1; y < cells_y - 1; ++y) {
         // horizontal boundary reverse
-        idx_outer = (key == 2) ? idx2dx(y, 0) : idx2d(y, 0);
-        idx_inner = (key == 2) ? idx2dx(y, 1) : idx2d(y, 1);
-        field[idx_outer] = (key == 2) ? fabs(field[idx_inner]) : field[idx_inner];
-
-        idx_outer = (key == 2) ? idx2dx(y, cells_x - 1) : idx2d(y, cells_x - 1);
-        idx_inner = (key == 2) ? idx2dx(y, cells_x - 2) : idx2d(y, cells_x - 2);
-        field[idx_outer] = (key == 2) ? -fabs(field[idx_inner]) : field[idx_inner];
+        field[idxf(y, 0)] = (key == 2) ? fabs(field[idxf(y, 1)]) : field[idxf(y, 1)];
+        field[idxf(y, cells_x - 1)] = (key == 2) ? -fabs(field[idxf(y, cells_x - 2)])
+                                                 : field[idxf(y, cells_x - 2)];
     }
 
     for (int x = 1; x < cells_x - 1; ++x) {
         // vertical boundary reverse
-        idx_outer = (key == 2) ? idx2dx(0, x) : idx2d(0, x);
-        idx_inner = (key == 2) ? idx2dx(1, x) : idx2d(1, x);
-        field[idx_outer] = (key == 1) ? fabs(field[idx_inner]) : field[idx_inner];
-
-        idx_outer = (key == 2) ? idx2dx(cells_y - 1, x) : idx2d(cells_y - 1, x);
-        idx_inner = (key == 2) ? idx2dx(cells_y - 2, x) : idx2d(cells_y - 2, x);
-        field[idx_outer] = (key == 1) ? -fabs(field[idx_inner]) : field[idx_inner];
+        field[idxf(0, x)] = (key == 1) ? fabs(field[idxf(1, x)]) : field[idxf(1, x)];
+        field[idxf(cells_y - 1, x)] = (key == 1) ? -fabs(field[idxf(cells_y - 2, x)])
+                                                 : field[idxf(cells_y - 2, x)];
     }
 
     // corners
-    field[idx2d(0, 0)] = (field[idx2d(1, 0)] + field[idx2d(0, 1)]) * 0.5f;
-    field[idx2d(0, cells_x - 1)] = (field[idx2d(1, cells_x - 1)] +
-                                    field[idx2d(0, cells_x - 2)]) * 0.5f;
-    field[idx2d(cells_y - 1, 0)] = (field[idx2d(cells_y - 2, 0)] +
-                                    field[idx2d(cells_y - 1, 1)]) * 0.5f;
-    field[idx2d(cells_y - 1, cells_x - 1)] = (field[idx2d(cells_y - 2, cells_x - 1)]
-                                            + field[idx2d(cells_y - 1, cells_x - 2)]) * 0.5f;
+    field[idxf(0, 0)] = (field[idxf(1, 0)] + field[idxf(0, 1)]) * 0.5f;
+    field[idxf(0, cells_x - 1)] = (field[idxf(1, cells_x - 1)] +
+                                   field[idxf(0, cells_x - 2)]) * 0.5f;
+    field[idxf(cells_y - 1, 0)] = (field[idxf(cells_y - 2, 0)] +
+                                   field[idxf(cells_y - 1, 1)]) * 0.5f;
+    field[idxf(cells_y - 1, cells_x - 1)] = (field[idxf(cells_y - 2, cells_x - 1)]
+                                           + field[idxf(cells_y - 1, cells_x - 2)]) * 0.5f;
 }
 
 static float dot(float* vec0, float* vec1, int size) {
@@ -164,17 +158,20 @@ static void poisson2d(float k1, float k2, float* S1, float* S0, int key, int b) 
     int y, x, i;
     float pTv, rTr, a, nrTnr, g;
 
+    int (*idxf)(int, int);
+    idxf = (key == 2) ? &idx2dx : &idx2d;
+
     // r = b - Ax
     float r[num_cells[key]];
     for (y = 0; y < cells_y; ++y) {
         for (x = 0; x < cells_x; ++x) {
             float Ax_yx;
-            int idx_yx = idx2d(y, x);
+            int idx_yx = idxf(y, x);
             Ax_yx = (1 - 2 * k1 - 2 * k2) * S1[idx_yx]
-                  + k1 * ((y < cells_y - 2) ? S1[idx2d(y + 1, x)] : 0.0f)
-                  + k2 * ((y > 1) ?           S1[idx2d(y - 1, x)] : 0.0f)
-                  + k1 * ((x < cells_x - 2) ? S1[idx2d(y, x + 1)] : 0.0f)
-                  + k2 * ((x > 1) ?           S1[idx2d(y, x - 1)] : 0.0f);
+                  + k1 * ((y < cells_y - 2) ? S1[idxf(y + 1, x)] : 0.0f)
+                  + k2 * ((y > 1) ?           S1[idxf(y - 1, x)] : 0.0f)
+                  + k1 * ((x < cells_x - 2) ? S1[idxf(y, x + 1)] : 0.0f)
+                  + k2 * ((x > 1) ?           S1[idxf(y, x - 1)] : 0.0f);
 
             r[idx_yx] = S0[idx_yx] - Ax_yx;
         }
@@ -193,16 +190,17 @@ static void poisson2d(float k1, float k2, float* S1, float* S0, int key, int b) 
         // v = Ap
         for (y = 0; y < cells_y; ++y) {
             for (x = 0; x < cells_x; ++x) {
-                int idx_yx = idx2d(y, x);
+                int idx_yx = idxf(y, x);
                 v[idx_yx] = (1 - 2 * k1 - 2 * k2) * p[idx_yx]
-                          + k1 * ((y < cells_y - 2) ? p[idx2d(y + 1, x)] : 0.0f)
-                          + k2 * ((y > 1) ?           p[idx2d(y - 1, x)] : 0.0f)
-                          + k1 * ((x < cells_x - 2) ? p[idx2d(y, x + 1)] : 0.0f)
-                          + k2 * ((x > 1) ?           p[idx2d(y, x - 1)] : 0.0f);
+                          + k1 * ((y < cells_y - 2) ? p[idxf(y + 1, x)] : 0.0f)
+                          + k2 * ((y > 1) ?           p[idxf(y - 1, x)] : 0.0f)
+                          + k1 * ((x < cells_x - 2) ? p[idxf(y, x + 1)] : 0.0f)
+                          + k2 * ((x > 1) ?           p[idxf(y, x - 1)] : 0.0f);
             }
         }
 
-        if (!done) { cout << _ << "\nv[40]: " << v[40] << endl; }
+        if (!done) { cout << _ << "\np[40]: " << p[40] << endl; }
+        if (!done) { cout << "v[40]: " << v[40] << endl; }
 
         // a = dot(r, r) / dot(p, v)
         pTv = dot(p, v, num_cells[key]);
@@ -242,16 +240,39 @@ static void poisson2d(float k1, float k2, float* S1, float* S0, int key, int b) 
         memcpy(r, new_r, sizeof(r));
 
         if (!done) { cout << "r[40]: " << r[40] << "\n\n ---\n\n" << endl; }
-        if (_ >= 10) { done = true; }
+        // if (_ >= 10) { done = true; }
 
-        if (b == -1) {
-            set_boundaries(S1, 0, key);
-        } else if (b > 2) {
-            boundary_reverse(S1, 1);
-            boundary_reverse(S1, 2);
-        }
+        // if (b == -1) {
+        //     set_boundaries(S1, 0, key);
+        // } else if (b > 2) {
+        //     boundary_reverse(S1, 1);
+        //     boundary_reverse(S1, 2);
+        // }
     }
 }
+
+// static void lin_solve(int b, float *x, float *x0, float a, float c, int iter, int key) {
+//     int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+//     int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+//
+//     float cRecip = 1.0f / c;
+//     for (int k = 0; k < iter; k++) {
+//         for (int y = 1; y < cells_y - 1; y++) {
+//             for (int x = 1; i < cells_x - 1; x++) {
+//                 x[idx2d(y, x)] =
+//                     (x0[IX(i, j, m)]
+//                         + a*(    x[IX(i+1, j  , m  )]
+//                                 +x[IX(i-1, j  , m  )]
+//                                 +x[IX(i  , j+1, m  )]
+//                                 +x[IX(i  , j-1, m  )]
+//                                 +x[IX(i  , j  , m+1)]
+//                                 +x[IX(i  , j  , m-1)]
+//                        )) * cRecip;
+//             }
+//         }
+//         set_bnd(b, x, N);
+//     }
+// }
 
 static void diffuse(float* S1, float* S0, int key) {
     memset(S1, 0, sizeof(float) * num_cells[key]);
@@ -313,17 +334,21 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float fo
     transport(U1_x, U0_x, U0_y, U0_x, 2);
 
     // diffuse
-    diffuse(U0_y, U1_y, 1);
+    // cout << "first" << endl;
+    // diffuse(U0_y, U1_y, 1);
     // if (!done2) { done = false; done2 = true; }
-    diffuse(U0_x, U1_x, 2);
+    // i++;
+    // cout << "second" << endl;
+    // diffuse(U0_x, U1_x, 2);
+    // if (i >= 10) { done = true; }
 
     // ensure incompressibility via pressure correction
-    project(U1_y, U1_x, U0_y, U0_x);
+    // project(U1_y, U1_x, U0_y, U0_x);
 }
 
 void solver::s_step(float* S1, float* S0, float* U_y, float* U_x, float source) {
     add_force(S0, source * DT, 0);
     transport(S1, S0, U_y, U_x, 0);
-    diffuse(S0, S1, 0);
+    // diffuse(S0, S1, 0);
     // dissipate(S1, S0);
 }

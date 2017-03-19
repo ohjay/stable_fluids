@@ -8,7 +8,7 @@
 #define WINDOW_WIDTH  600
 #define WINDOW_Y      100
 #define WINDOW_X      400
-#define DISPLAY_KEY     1
+#define DISPLAY_KEY     0
 
 /* Grid parameters */
 #define NDIM     2 // currently assumed to be 2
@@ -30,7 +30,7 @@
 #define num_cells_s  (CELLS_Y * CELLS_X)
 
 /* Functions */
-#define idx2d(y, x) (y * CELLS_X + x)
-#define idx2dx(y, x) (y * (CELLS_X + 1) + x) // for staggered horizontal grid
+inline int idx2d(int y, int x) { return y * CELLS_X + x; }
+inline int idx2dx(int y, int x) { return y * (CELLS_X + 1) + x; } // for staggered grid
 
 #endif
