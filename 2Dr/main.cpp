@@ -42,26 +42,20 @@ void display(void) {
     int cells_y = (DISPLAY_KEY == 1) ? CELLS_Y + 1 : CELLS_Y;
     int cells_x = (DISPLAY_KEY == 2) ? CELLS_X + 1 : CELLS_X;
 
-    float ctl, cbl, ctr, cbr;
-
+    float color;
     for (int y = 0; y < cells_y - 1; ++y) {
         for (int x = 0; x < cells_x - 1; ++x) {
             if (DISPLAY_KEY == 0) {
-                ctl = fluid.S_at(y,     x) / 200.0f;
-                cbl = fluid.S_at(y + 1, x) / 200.0f;
-                ctr = fluid.S_at(y,     x + 1) / 200.0f;
-                cbr = fluid.S_at(y + 1, x + 1) / 200.0f;
+                color = fluid.S_at(y, x) / 200.0f;
             } else if (DISPLAY_KEY == 1) {
-                ctl = ctr = 0.0f;
-                cbl = cbr = fluid.Uy_at(y, x);
+                color = fluid.Uy_at(y, x) / 200.0f;
             } else if (DISPLAY_KEY == 2) {
-                ctl = cbl = 0.0f;
-                ctr = cbr = fluid.Ux_at(y, x);
+                color = fluid.Ux_at(y, x) / 200.0f;
             }
 
-            glColor4f(cr * ctl, cg * ctl, cb * ctl, alpha);
-            glRectf((x - 0.5f) / cells_x, (y - 0.5f) / cells_y,
-                    (x + 0.5f) / cells_x, (y + 0.5f) / cells_y);
+            glColor4f(cr * color, cg * color, cb * color, alpha);
+            glRectf((x - 0.5f) / cells_x - 0.5f, (y - 0.5f) / cells_y - 0.5f,
+                    (x + 0.5f) / cells_x - 0.5f, (y + 0.5f) / cells_y - 0.5f);
         }
     }
 
@@ -91,7 +85,7 @@ void motion(int x, int y) {
     int cells_x = (DISPLAY_KEY == 2) ? CELLS_X + 1 : CELLS_X;
 
     mouse_y = (int) (((float) (window_height - y) / window_height) * cells_y);
-    mouse_x = (int) (((float) (window_width - x) / window_width) * cells_x);
+    mouse_x = (int) (((float) x / window_width) * cells_x);
 }
 
 void keyboard(unsigned char key, int x, int y) {

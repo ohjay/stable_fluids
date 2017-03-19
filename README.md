@@ -13,7 +13,9 @@ by modifying `DISPLAY_KEY` as follows:
 ```
 
 ### Axis Directions
-The y-axis points downward and the x-axis points to the right.
+In our fluid representation, the y-axis points downward and the x-axis points
+to the right. Unfortunately, the OpenGL / GLUT functions involve an
+upward-pointing y-axis... which makes for some fun reversals in `main.cpp`.
 
 ### Velocity Fields
 We represent our velocity fields using staggered MAC grids. **If we take `(y, x)`
