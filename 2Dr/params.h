@@ -12,8 +12,8 @@
 
 /* Grid parameters */
 #define NDIM     2 // currently assumed to be 2
-#define CELLS_Y 30
-#define CELLS_X 30
+#define CELLS_Y 50
+#define CELLS_X 50
 
 /* Fluid parameters */
 #define VISCOSITY   0.1

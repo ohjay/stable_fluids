@@ -89,16 +89,6 @@ static void transport(float* S1, float* S0, float* U_y, float* U_x, int key) {
     }
 }
 
-void print_fl_array(float* arr, int n, string label="") {
-    label = (label.empty()) ? "" : "[" + label + "] ";
-
-    int idx1 = (int) n / 4, idx2 = (int) n / 2, idx3 = (int) 3 * n / 4;
-    float val1 = arr[idx1], val2 = arr[idx2], val3 = arr[idx3];
-    cout << "---" << endl;
-    cout << label << "idx " << idx1 << ": " << val1 << "; idx "
-            << idx2 << ": " << val2 << "; idx " << idx3 << ": " << val3 << endl;
-}
-
 void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float force_y, float force_x) {
     // add forces
     add_force(U0_y, force_y * DT, 1);
@@ -120,11 +110,8 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float fo
 
 void solver::s_step(float* S1, float* S0, float* U_y, float* U_x, float source) {
     add_force(S0, source * DT, 0);
-
-    // print_fl_array(S0, CELLS_X * CELLS_Y, "1");
     transport(S1, S0, U_y, U_x, 0);
-    // print_fl_array(S1, CELLS_X * CELLS_Y, "2");
-    
+
     /*
     diffuse(S0, S1, 0);
     dissipate(S1, S0);

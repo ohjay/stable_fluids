@@ -34,6 +34,11 @@ void Fluid::cleanup(void) {
 }
 
 void Fluid::add_source_at(int y, int x, float source) {
+    if (y <= 0) { y = 1; }
+    else if (y >= CELLS_Y - 1) { y = CELLS_Y - 2; }
+    if (x <= 0) { x = 1; }
+    else if (x >= CELLS_X - 1) { x = CELLS_X - 2; }
+
     S1[idx2d(y, x)] += source;
 }
 

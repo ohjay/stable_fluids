@@ -43,8 +43,8 @@ void display(void) {
     int cells_x = (DISPLAY_KEY == 2) ? CELLS_X + 1 : CELLS_X;
 
     float color;
-    for (int y = 0; y < cells_y - 1; ++y) {
-        for (int x = 0; x < cells_x - 1; ++x) {
+    for (int y = 0; y < cells_y; ++y) {
+        for (int x = 0; x < cells_x; ++x) {
             if (DISPLAY_KEY == 0) {
                 color = fluid.S_at(y, x) / 200.0f;
             } else if (DISPLAY_KEY == 1) {
