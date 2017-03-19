@@ -4,11 +4,11 @@ int window_width = 600;
 int window_height = 600;
 
 Fluid fluid;
-float F[2];
-float Ssource, add_amount;
+double F[2];
+double Ssource, add_amount;
 int Fy, Fx;
 bool left_mouse_down, paused;
-float cr, cg, cb, alpha;
+double cr, cg, cb, alpha;
 
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -29,12 +29,12 @@ void display(void) {
     glPushMatrix();
 
     // draw the density grid
-    float x, y, c00, c01, c10, c11;
+    double x, y, c00, c01, c10, c11;
 
     int h = CELLS_PER_SIDE;
     int w = CELLS_PER_SIDE;
-    float vsize = fluid.grid_spacing();
-    float half_side = CELLS_PER_SIDE;
+    double vsize = fluid.grid_spacing();
+    double half_side = CELLS_PER_SIDE;
 
     glBegin(GL_QUADS);
 
@@ -81,8 +81,8 @@ void mouse(int button, int state, int x, int y) {
             //     // Ssource += 120.0f;
             //
             //     // (TODO) should really use SIDE_LEN
-            //     Fy = (int) (((float) (window_width - y) / window_width) * CELLS_PER_SIDE);
-            //     Fx = (int) (((float) x / window_width) * CELLS_PER_SIDE);
+            //     Fy = (int) (((double) (window_width - y) / window_width) * CELLS_PER_SIDE);
+            //     Fx = (int) (((double) x / window_width) * CELLS_PER_SIDE);
             //     fluid.add_S_at(Fy, Fx, 500.0f);
             // }
             break;
@@ -93,8 +93,8 @@ void mouse(int button, int state, int x, int y) {
 
 void motion(int x, int y) {
     // do something here, like apply a force
-    Fy = (int) (((float) (window_width - y) / window_width) * CELLS_PER_SIDE);
-    Fx = (int) (((float) x / window_width) * CELLS_PER_SIDE);
+    Fy = (int) (((double) (window_width - y) / window_width) * CELLS_PER_SIDE);
+    Fx = (int) (((double) x / window_width) * CELLS_PER_SIDE);
 }
 
 void keyboard(unsigned char key, int x, int y) {
@@ -110,7 +110,7 @@ void keyboard(unsigned char key, int x, int y) {
             add_amount += 100.0f;
             break;
         case '-':
-            add_amount = max(0.0f, add_amount - 100.0f);
+            add_amount = fmax(0.0f, add_amount - 100.0f);
             break;
         default:
             break;

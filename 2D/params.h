@@ -10,6 +10,6 @@
 #define VISC           0.1                               // viscosity parameter
 #define KS             0.2                               // diffusion constant
 #define AS             0.3                               // dissipation rate
-#define DT             0.05                              // time step
+#define DT             0.01                              // time step
 
 #endif

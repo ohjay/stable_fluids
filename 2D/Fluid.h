@@ -9,37 +9,37 @@
 
 class Fluid {
 private:
-    float **U0, **U1; // velocity grids (positive directions: down and right)
+    double **U0, **U1; // velocity grids (positive directions: down and right)
     // U0[0][i] is the y-direction at index i, U0[1][i] is the x-direction at index i
     // if 3D, U[2][i] is the z-direction at index i
     // purportedly row-major order within the second dimension
 
-    float *S0, *S1; // scalar density grids
-    float O[NDIM]; // origin
-    float D[NDIM]; // size of each voxel
+    double *S0, *S1; // scalar density grids
+    double O[NDIM]; // origin
+    double D[NDIM]; // size of each voxel
 public:
-    void init(float visc, float ks, float as, float dt);
-    void step(float F[2], float Ssource, int Fy, int Fx);
+    void init(double visc, double ks, double as, double dt);
+    void step(double F[2], double Ssource, int Fy, int Fx);
 
     // properties of fluid
-    float visc; // viscosity
+    double visc; // viscosity
 
     // properties of substance
-    float ks; // diffusion constant
-    float as; // dissipation rate
+    double ks; // diffusion constant
+    double as; // dissipation rate
 
     // speed of interactivity
-    float dt; // time step
+    double dt; // time step
 
-    float grid_spacing(); // get maximum voxel size in any dimension
+    double grid_spacing(); // get maximum voxel size in any dimension
 
-    float S_at(int y, int x); // scalar value at 2D location in grid
+    double S_at(int y, int x); // scalar value at 2D location in grid
 
-    float U10_at(int y, int x);
+    double U10_at(int y, int x);
 
-    float U11_at(int y, int x);
+    double U11_at(int y, int x);
 
-    void add_S_at(int y, int x, float source); // add source amount of fluid at 2D location
+    void add_S_at(int y, int x, double source); // add source amount of fluid at 2D location
 
     void cleanup(void);
 };

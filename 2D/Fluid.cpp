@@ -1,18 +1,18 @@
 #include "Fluid.h"
 
-static void swap2d(float*** arr0, float*** arr1) {
-    float** temp = *arr0;
+static void swap2d(double*** arr0, double*** arr1) {
+    double** temp = *arr0;
     *arr0 = *arr1;
     *arr1 = temp;
 }
 
-static void swap1d(float** arr0, float** arr1) {
-    float* temp = *arr0;
+static void swap1d(double** arr0, double** arr1) {
+    double* temp = *arr0;
     *arr0 = *arr1;
     *arr1 = temp;
 }
 
-void Fluid::init(float visc, float ks, float as, float dt) {
+void Fluid::init(double visc, double ks, double as, double dt) {
     (*this).visc = visc;
     (*this).ks = ks;
     (*this).as = as;
@@ -25,19 +25,19 @@ void Fluid::init(float visc, float ks, float as, float dt) {
     }
 
     // initialize grids [(TODO) don't forget to delete this memory later]
-    U0 = new float*[NDIM]; U1 = new float*[NDIM];
+    U0 = new double*[NDIM]; U1 = new double*[NDIM];
     for (int i = 0; i < NDIM; ++i) {
         // for velocity fields (fluid)
-        U0[i] = new float[NUM_CELLS]();
-        U1[i] = new float[NUM_CELLS]();
+        U0[i] = new double[NUM_CELLS]();
+        U1[i] = new double[NUM_CELLS]();
     }
 
     // for density fields (substance)
-    S0 = new float[NUM_CELLS]();
-    S1 = new float[NUM_CELLS]();
+    S0 = new double[NUM_CELLS]();
+    S1 = new double[NUM_CELLS]();
 }
 
-void Fluid::step(float F[2], float Ssource, int Fy, int Fx) {
+void Fluid::step(double F[2], double Ssource, int Fy, int Fx) {
     // handle display and user interaction
     // get forces F and sources Ssource from UI
 
@@ -51,23 +51,23 @@ void Fluid::step(float F[2], float Ssource, int Fy, int Fx) {
     solver::s_step(S1, S0, ks, as, U1, Ssource, dt, O, D, Fy, Fx);
 }
 
-float Fluid::grid_spacing() {
+double Fluid::grid_spacing() {
     return (D[0] > D[1]) ? D[0] : D[1];
 }
 
-float Fluid::S_at(int y, int x) {
+double Fluid::S_at(int y, int x) {
     return S1[solver::idx2d(y, x)];
 }
 
-float Fluid::U10_at(int y, int x) {
+double Fluid::U10_at(int y, int x) {
     return U1[0][solver::idx2d(y, x)] * 1000;
 }
 
-float Fluid::U11_at(int y, int x) {
+double Fluid::U11_at(int y, int x) {
     return U1[1][solver::idx2d(y, x)] * 1000;
 }
 
-void Fluid::add_S_at(int y, int x, float source) {
+void Fluid::add_S_at(int y, int x, double source) {
     S1[solver::idx2d(y, x)] += source;
 }
 
