@@ -3,8 +3,8 @@
 
 // relevant systemwide parameters should go here
 #define NDIM           2                                 // number of dimensions
-#define SIDE_LEN       4                                // for now, all of our grids are square (replaces L)
-#define CELLS_PER_SIDE 4                                // # of cells in each coordinate (replaces N)
+#define SIDE_LEN       40                                // for now, all of our grids are square (replaces L)
+#define CELLS_PER_SIDE 40                                // # of cells in each coordinate (replaces N)
 #define NUM_CELLS      (CELLS_PER_SIDE * CELLS_PER_SIDE) // total # of cells in each grid
 
 #define VISC           0.1                               // viscosity parameter

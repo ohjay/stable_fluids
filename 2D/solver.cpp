@@ -12,10 +12,6 @@ int solver::idx2d(int y, int x) {
 
 // add the force field multiplied by the time step to each value of the field
 static void add_force(float* field, float force, float dt) {
-    // for (int j = 1000; j < NUM_CELLS - 1000; ++j) {
-    //     field[j] += force;
-    // }
-
     for (int j = 0; j < NUM_CELLS; ++j) {
         field[j] += force * dt;
     }
@@ -34,6 +30,7 @@ static void add_force_at(float* field, float force, float dt, int y, int x) {
 // we should maybe be using Foster's staggered grid for this
 static float lin_interp(float* X0, float* S) {
     if (NDIM == 2) {
+        // print_fl_array_perc(X0, NDIM, 1.0f, "c");
         X0[0] = fmin(CELLS_PER_SIDE * 1.0f, fmax(0.0f, X0[0]));
         X0[1] = fmin(CELLS_PER_SIDE * 1.0f, fmax(0.0f, X0[1]));
         int y0 = (int) X0[0];
@@ -53,11 +50,17 @@ static float lin_interp(float* X0, float* S) {
         float bottom_left = S[idx2d(y1, x0)];
         float bottom_right = S[idx2d(y1, x1)];
         float lw = fabs(x1 + 0.5f - X0[1]);
-        float rw = (lw != 0.0f) ? fabs(X0[1] - (x0 + 0.5f)) : 1.0f;
+        float rw = (x0 != x1 && lw != 0.0f) ? fabs(X0[1] - (x0 + 0.5f)) : 1.0f - lw;
         float tw = fabs(y1 + 0.5f - X0[0]);
-        float bw = (tw != 0.0f) ? fabs(X0[0] - (y0 + 0.5f)) : 1.0f;
+        float bw = (y0 != y1 && tw != 0.0f) ? fabs(X0[0] - (y0 + 0.5f)) : 1.0f - tw;
         float result = tw * (lw * top_left + rw * top_right) + bw * (lw * bottom_left + rw * bottom_right);
-        if (isnan(result)) throw "exit";
+        // cout << "a " << y0 << " " << x0 << " " << y1 << " " << x1 << endl;
+        // cout << "b " << lw << " " << rw << " " << tw << " " << bw << endl;
+        // cout << "b " << top_left << " " << top_right << " " << bottom_left << " " << bottom_right << endl;
+        // cout << result << endl;
+        if (isnan(result)) {
+            throw "exit";
+        }
         return result;
     } else if (NDIM == 3) {
         // (TODO) add trilinear interpolation code here
@@ -199,14 +202,14 @@ static void poisson2d(float k1, float k2, float* S1, float* S0, int option, int 
         // set the boundaries of our current solution to 0 (Neumann condition)
         // set_boundaries2d(S1, 0);
 
-        if (option == -1) {
-            set_boundaries2d(S1, 0);
-        } else if (option == 2) {
-            boundary_reverse(S1, 0);
-            boundary_reverse(S1, 1);
-        } else {
-            boundary_reverse(S1, option);
-        }
+        // if (option == -1) {
+        //     set_boundaries2d(S1, 0);
+        // } else if (option == 2) {
+        //     boundary_reverse(S1, 0);
+        //     boundary_reverse(S1, 1);
+        // } else {
+        //     boundary_reverse(S1, option);
+        // }
     }
 }
 
@@ -261,8 +264,8 @@ static void project(float** U1, float** U0, float dt, float D[NDIM]) {
     }
 
     // set the boundaries one final time
-    boundary_reverse(U1[0], 0);
-    boundary_reverse(U1[1], 1);
+    // boundary_reverse(U1[0], 0);
+    // boundary_reverse(U1[1], 1);
 
     // set_boundaries2d(U1[0], 0);
     // set_boundaries2d(U1[1], 0);
@@ -286,7 +289,10 @@ static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], 
 
             float X0[NDIM];
             trace_particle(X, U, -dt, X0);
-            S1[j] = lin_interp(X0, S0);
+            // print_fl_array_perc(X, NDIM, 1.0f, "c");
+            // print_fl_array_perc(X0, NDIM, 1.0f, "d");
+
+            S1[idx2d(i, j)] = lin_interp(X0, S0);
         }
     }
     // boundary_reverse(S1, option);
@@ -298,40 +304,29 @@ static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], 
 // velocity field solver
 void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
         float O[NDIM], float D[NDIM]) {
-    print_fl_array_perc(U1[0], NUM_CELLS, 1.0f, "a");
     for (int i = 0; i < NDIM; ++i) {
         add_force(U0[i], F[i], dt);
     }
-    print_fl_array_perc(U0[0], NUM_CELLS, 1.0f, "b");
     for (int i = 0; i < NDIM; ++i) {
         transport(U1[i], U0[i], U0, dt, O, D, i);
     }
+    // print_fl_array_perc(U0[0], NUM_CELLS, 1.0f, "U0");
+    // print_fl_array_perc(U1[0], NUM_CELLS, 1.0f, "U1_0");
     for (int i = 0; i < NDIM; ++i) {
         diffuse(U0[i], U1[i], visc, dt, D); // notice that U0 and U1 switch
-        // (TODO) resolve all of the U0 and U1 switches
-        // (TODO) shouldn't it be U1, U0?
-        /*
-        explanation! so it's something like this:
-        w4 = proj(w3)
-        w3 = diff(w2)
-        w2 = trans(w1)
-        w1 = add_f(w0)
-        w0 starts off as u0, and then u0 is modified to become w1
-        then u1 becomes w2 by transporting u0
-        we need w3 to be based on w2, and we don't need w1 anymore
-        so we use u0 as a buffer to store w3
-        and then we project, setting u1 to w4 based on u0 = w3
-        so we're not really diffusing u0 based on u1, it's just to avoid \
-        doing a lot of swaps of u0 and u1 or use temporary buffers
-        */
     }
+    // print_fl_array_perc(U0[0], NUM_CELLS, 1.0f, "U1_1");
     project(U1, U0, dt, D);
+    // print_fl_array_perc(U1[0], NUM_CELLS, 1.0f, "U1_2");
 }
 
 // scalar field solver
 void solver::s_step(float* S1, float* S0, float ks, float as, float** U, float source, float dt,
         float O[NDIM], float D[NDIM], int Fy, int Fx) {
+    // print_fl_array_perc(S0, NUM_CELLS, 1.0f, "b");
     add_force(S0, source, dt);
+    // print_fl_array_perc(S0, NUM_CELLS, 1.0f, "b");
+    // throw "exit";
     transport(S1, S0, U, dt, O, D, -1);
     diffuse(S0, S1, ks, dt, D);
     dissipate(S1, S0, as, dt);

@@ -38,7 +38,7 @@ void Fluid::init(float visc, float ks, float as, float dt) {
 }
 
 void Fluid::step(float F[2], float Ssource, int Fy, int Fx) {
-    sleep(1);
+    // sleep(1);
     // handle display and user interaction
     // get forces F and sources Ssource from UI
 
@@ -50,6 +50,7 @@ void Fluid::step(float F[2], float Ssource, int Fy, int Fx) {
 
     // perform a scalar step (using S1, S0, kS, aS, U1, Ssource, and dt)
     solver::s_step(S1, S0, ks, as, U1, Ssource, dt, O, D, Fy, Fx);
+    // print_fl_array_perc(S1, NUM_CELLS, 0.2f, "");
 }
 
 float Fluid::grid_spacing() {
@@ -69,7 +70,8 @@ float Fluid::U11_at(int y, int x) {
 }
 
 void Fluid::add_S_at(int y, int x, float source) {
-    S1[solver::idx2d(y, x)] += source;
+    if (x >= 0 && x < CELLS_PER_SIDE && y >= 0 && y < CELLS_PER_SIDE)
+        S1[solver::idx2d(x, y)] += source;
 }
 
 void Fluid::cleanup(void) {
