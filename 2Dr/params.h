@@ -8,7 +8,7 @@
 #define WINDOW_WIDTH  600
 #define WINDOW_Y      100
 #define WINDOW_X      400
-#define DISPLAY_KEY     0
+#define DISPLAY_KEY     1
 
 /* Grid parameters */
 #define NDIM     2 // currently assumed to be 2

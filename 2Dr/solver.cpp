@@ -89,6 +89,63 @@ static void transport(float* S1, float* S0, float* U_y, float* U_x, int key) {
     }
 }
 
+static void set_boundaries(float* field, float val, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    int idx;
+    for (int y = 0; y < cells_y; ++y) {
+        idx = (key == 2) ? idx2dx(y, 0) : idx2d(y, 0);
+        field[idx] = val;
+        idx = (key == 2) ? idx2dx(y, cells_x - 1) : idx2d(y, cells_x - 1);
+        field[idx] = val;
+    }
+
+    for (int x = 0; x < cells_x; ++x) {
+        idx = (key == 2) ? idx2dx(0, x) : idx2d(0, x);
+        field[idx] = val;
+        idx = (key == 2) ? idx2dx(cells_y - 1, x) : idx2d(cells_y - 1, x);
+        field[idx] = val;
+    }
+}
+
+static void boundary_reverse(float* field, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    int idx_outer, idx_inner;
+    for (int y = 1; y < cells_y - 1; ++y) {
+        // horizontal boundary reverse
+        idx_outer = (key == 2) ? idx2dx(y, 0) : idx2d(y, 0);
+        idx_inner = (key == 2) ? idx2dx(y, 1) : idx2d(y, 1);
+        field[idx_outer] = (key == 2) ? fabs(field[idx_inner]) : field[idx_inner];
+
+        idx_outer = (key == 2) ? idx2dx(y, cells_x - 1) : idx2d(y, cells_x - 1);
+        idx_inner = (key == 2) ? idx2dx(y, cells_x - 2) : idx2d(y, cells_x - 2);
+        field[idx_outer] = (key == 2) ? -fabs(field[idx_inner]) : field[idx_inner];
+    }
+
+    for (int x = 1; x < cells_x - 1; ++x) {
+        // vertical boundary reverse
+        idx_outer = (key == 2) ? idx2dx(0, x) : idx2d(0, x);
+        idx_inner = (key == 2) ? idx2dx(1, x) : idx2d(1, x);
+        field[idx_outer] = (key == 1) ? fabs(field[idx_inner]) : field[idx_inner];
+
+        idx_outer = (key == 2) ? idx2dx(cells_y - 1, x) : idx2d(cells_y - 1, x);
+        idx_inner = (key == 2) ? idx2dx(cells_y - 2, x) : idx2d(cells_y - 2, x);
+        field[idx_outer] = (key == 1) ? -fabs(field[idx_inner]) : field[idx_inner];
+    }
+
+    // corners
+    field[idx2d(0, 0)] = (field[idx2d(1, 0)] + field[idx2d(0, 1)]) * 0.5f;
+    field[idx2d(0, cells_x - 1)] = (field[idx2d(1, cells_x - 1)] +
+                                    field[idx2d(0, cells_x - 2)]) * 0.5f;
+    field[idx2d(cells_y - 1, 0)] = (field[idx2d(cells_y - 2, 0)] +
+                                    field[idx2d(cells_y - 1, 1)]) * 0.5f;
+    field[idx2d(cells_y - 1, cells_x - 1)] = (field[idx2d(cells_y - 2, cells_x - 1)]
+                                            + field[idx2d(cells_y - 1, cells_x - 2)]) * 0.5f;
+}
+
 static float dot(float* vec0, float* vec1, int size) {
     float result = 0.0f;
     for (int i = 0; i < size; ++i) {
@@ -99,8 +156,9 @@ static float dot(float* vec0, float* vec1, int size) {
 
 static bool done = true;
 static bool done2 = false;
+static int i = 0;
 
-static void poisson2d(float k1, float k2, float* S1, float* S0, int key) {
+static void poisson2d(float k1, float k2, float* S1, float* S0, int key, int b) {
     int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
     int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
     int y, x, i;
@@ -185,6 +243,13 @@ static void poisson2d(float k1, float k2, float* S1, float* S0, int key) {
 
         if (!done) { cout << "r[40]: " << r[40] << "\n\n ---\n\n" << endl; }
         if (_ >= 10) { done = true; }
+
+        if (b == -1) {
+            set_boundaries(S1, 0, key);
+        } else if (b > 2) {
+            boundary_reverse(S1, 1);
+            boundary_reverse(S1, 2);
+        }
     }
 }
 
@@ -192,7 +257,50 @@ static void diffuse(float* S1, float* S0, int key) {
     memset(S1, 0, sizeof(float) * num_cells[key]);
     float k1 = -DT * DIFFUSION;
     float k2 = -DT * DIFFUSION;
-    poisson2d(k1, k2, S1, S0, key);
+    poisson2d(k1, k2, S1, S0, key, -1);
+}
+
+static void project(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
+    int y, x, idx_yx;
+
+    float k1 = 1.0f;
+    float k2 = 1.0f;
+
+    // construct initial guess for the solution
+    float S[num_cells_s];
+    memset(S, 0, sizeof(float) * num_cells_s);
+
+    // compute the divergence of the velocity field
+    float divergence[num_cells[0]];
+    for (y = 1; y < CELLS_Y - 1; ++y) {
+        for (x = 1; x < CELLS_X - 1; ++x) {
+            idx_yx = idx2d(y, x);
+            divergence[idx_yx] = U0_y[idx2d(y + 1, x)] - U0_y[idx_yx]
+                               + U0_x[idx2dx(y, x + 1)] - U0_x[idx2dx(y, x)];
+        }
+    }
+
+    boundary_reverse(divergence, -1);
+    poisson2d(k1, k2, S, divergence, 0, 3);
+
+    // subtract the gradient from the previous solution
+    for (y = 1; y < CELLS_Y - 1; ++y) {
+        for (x = 1; x < CELLS_X - 1; ++x) {
+            idx_yx = idx2d(y, x);
+            U1_y[idx_yx] = U0_y[idx_yx] - 0.5f * (S[idx2d(y + 1, x)] - S[idx2d(y, x)]);
+            idx_yx = idx2dx(y, x);
+            U1_x[idx_yx] = U0_x[idx_yx] - 0.5f * (S[idx2dx(y, x + 1)] - S[idx2dx(y, x)]);
+        }
+    }
+
+    boundary_reverse(U1_y, 1);
+    boundary_reverse(U1_x, 2);
+}
+
+static void dissipate(float* S1, float* S0) {
+    for (int i = 0; i < num_cells_s; ++i) {
+        S1[i] = S0[i] / (1.0f + DT * DISSIPATION);
+    }
 }
 
 void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float force_y, float force_x) {
@@ -205,17 +313,17 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float fo
     transport(U1_x, U0_x, U0_y, U0_x, 2);
 
     // diffuse
-    // diffuse(U0_y, U1_y, 1);
+    diffuse(U0_y, U1_y, 1);
     // if (!done2) { done = false; done2 = true; }
-    // diffuse(U0_x, U1_x, 2);
+    diffuse(U0_x, U1_x, 2);
 
     // ensure incompressibility via pressure correction
-    // project(U1_y, U1_x, U0_y, U0_x);
+    project(U1_y, U1_x, U0_y, U0_x);
 }
 
 void solver::s_step(float* S1, float* S0, float* U_y, float* U_x, float source) {
     add_force(S0, source * DT, 0);
     transport(S1, S0, U_y, U_x, 0);
-    // diffuse(S0, S1, 0);
+    diffuse(S0, S1, 0);
     // dissipate(S1, S0);
 }
