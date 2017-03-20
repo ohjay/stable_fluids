@@ -10,10 +10,21 @@
 #define WINDOW_X      400
 #define DISPLAY_KEY     0
 
+/* Colors */
+#define RED         {1.0f, 0.0f, 0.0f}
+#define GREEN       {0.0f, 1.0f, 0.0f}
+#define BLUE        {0.0f, 0.0f, 1.0f}
+#define YELLOW      {0.5f, 0.5f, 0.0f}
+#define CYAN        {0.0f, 0.5f, 0.5f}
+#define MAGENTA     {0.5f, 0.0f, 0.5f}
+#define WHITE       {0.33f, 0.33f, 0.33f}
+#define ALL_COLORS  {RED, GREEN, BLUE, YELLOW, CYAN, MAGENTA, WHITE}
+
 /* Grid parameters */
 #define NDIM     2 // currently assumed to be 2
 #define CELLS_Y 100
 #define CELLS_X 100
+#define NUM_FLUIDS 7
 
 /* Fluid parameters */
 #define VISCOSITY    0.1

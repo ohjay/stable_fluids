@@ -4,7 +4,9 @@ void Fluid::swap_grids(void) {
     float* temp;
     temp = U0_y; U0_y = U1_y; U1_y = temp;
     temp = U0_x; U0_x = U1_x; U1_x = temp;
-    temp = S0;   S0 = S1;     S1 = S0;
+    for (int i = 0; i < NUM_FLUIDS; i++) {
+        S0[i] = S1[i];
+    }
 }
 
 void Fluid::init(void) {
@@ -13,13 +15,19 @@ void Fluid::init(void) {
     U1_y = new float[num_cells_uy]();
     U1_x = new float[num_cells_ux]();
 
-    S0 = new float[num_cells_s]();
-    S1 = new float[num_cells_s]();
+    S0 = new float*[NUM_FLUIDS]();
+    S1 = new float*[NUM_FLUIDS]();
+    for (int i = 0; i < NUM_FLUIDS; i++) {
+        S0[i] = new float[num_cells_s]();
+        S1[i] = new float[num_cells_s]();
+    }
 }
 
 void Fluid::step(float force_y, float force_x, float source) {
     solver::v_step(U1_y, U1_x, U0_y, U0_x, force_y, force_x);
-    solver::s_step(S1, S0, U1_y, U1_x, source);
+    for (int i = 0; i < NUM_FLUIDS; i++) {
+        solver::s_step(S1[i], S0[i], U1_y, U1_x, source);
+    }
     swap_grids();
 }
 
@@ -29,13 +37,17 @@ void Fluid::cleanup(void) {
     delete[] U1_y;
     delete[] U1_x;
 
+    for (int i = 0; i < NUM_FLUIDS; i++) {
+        delete[] S0[i];
+        delete[] S1[i];
+    }
     delete[] S0;
     delete[] S1;
 }
 
-void Fluid::add_source_at(int y, int x, float source) {
+void Fluid::add_source_at(int y, int x, int i, float source) {
     if (y > 0 && y < CELLS_Y - 1 && x > 0 && x < CELLS_X - 1) {
-        S1[idx2d(y, x)] += source;
+        S1[i][idx2d(y, x)] += source;
     }
 }
 
@@ -47,6 +59,6 @@ float Fluid::Ux_at(int y, int x) {
     return U1_x[idx2dx(y, x)];
 }
 
-float Fluid::S_at(int y, int x) {
-    return S1[idx2d(y, x)];
+float Fluid::S_at(int y, int x, int i) {
+    return S1[i][idx2d(y, x)];
 }

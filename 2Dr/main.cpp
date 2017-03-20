@@ -12,10 +12,12 @@ int window_height = WINDOW_HEIGHT;
 int window_width = WINDOW_WIDTH;
 bool left_mouse_down, paused;
 int mouse_y, mouse_x;
+int current_fluid;
 
 Fluid fluid;
 float source, add_amount, force_y, force_x;
 double cr, cg, cb, alpha;
+float fluid_colors[NUM_FLUIDS][3];
 
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -28,7 +30,12 @@ void init(void) {
     cb = 0.3;
     alpha = 0.03;
 
+    float colors[7][3] = ALL_COLORS; // {RED, GREEN, BLUE, YELLOW, CYAN, MAGENTA, WHITE};
+    for (int i = 0; i < NUM_FLUIDS; ++i)
+        memcpy(fluid_colors[i], colors[i], sizeof(colors[i]));
+
     add_amount = 0.1f * max(CELLS_X, CELLS_Y);
+    current_fluid = 0;
     source = 0.0f;
     force_y = -5.0f;
     force_x = 5.0f;
@@ -47,14 +54,24 @@ void display(void) {
     for (int y = 0; y < cells_y; ++y) {
         for (int x = 0; x < cells_x; ++x) {
             if (DISPLAY_KEY == 0) {
-                color = fluid.S_at(y, x);
-            } else if (DISPLAY_KEY == 1) {
-                color = fabs(fluid.Uy_at(y, x));
-            } else if (DISPLAY_KEY == 2) {
-                color = fabs(fluid.Ux_at(y, x));
+                cr = 0.0f; cg = 0.0f; cb = 0.0f;
+                for (int i = 0; i < NUM_FLUIDS; i++) {
+                    cr += fluid_colors[i][0] * fluid.S_at(y, x, i);
+                    cg += fluid_colors[i][1] * fluid.S_at(y, x, i);
+                    cb += fluid_colors[i][2] * fluid.S_at(y, x, i);
+                }
+            } else {
+                if (DISPLAY_KEY == 1) {
+                    color = fabs(fluid.Uy_at(y, x));
+                } else if (DISPLAY_KEY == 2) {
+                    color = fabs(fluid.Ux_at(y, x));
+                }
+                cr = fluid_colors[0][0] * color;
+                cg = fluid_colors[0][1] * color;
+                cb = fluid_colors[0][2] * color;
             }
 
-            glColor4f(cr * color, cg * color, cb * color, alpha);
+            glColor4f(cr, cg, cb, alpha);
             glRectf((x - 1.0f) * 2.0f / (cells_x - 2) - 1.0f, (y - 0.5f) * 2.0f / (cells_y - 2) - 1.0f,
                     (x + 1.0f) * 2.0f / (cells_x - 2) - 1.0f, (y + 0.5f) * 2.0f / (cells_y - 2) - 1.0f);
         }
@@ -104,6 +121,12 @@ void keyboard(unsigned char key, int x, int y) {
         case '-':
             add_amount = fmax(0.0f, add_amount - 0.005f * max(CELLS_X, CELLS_Y));
             break;
+        case '[':
+            current_fluid = max(0, current_fluid - 1);
+            break;
+        case ']':
+            current_fluid = min(NUM_FLUIDS - 1, current_fluid + 1);
+            break;
         default:
             break;
     }
@@ -130,7 +153,7 @@ void special_keyboard(int key, int x, int y) {
 
 void idle(void) {
     if (left_mouse_down) {
-        fluid.add_source_at(mouse_y, mouse_x, add_amount);
+        fluid.add_source_at(mouse_y, mouse_x, current_fluid, add_amount);
     }
     if (!paused) {
         fluid.step(force_y, force_x, source);
