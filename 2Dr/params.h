@@ -16,12 +16,12 @@
 #define CELLS_X 50
 
 /* Fluid parameters */
-#define VISCOSITY   0.1
-#define DIFFUSION   0.2
-#define DISSIPATION 0.3
+#define VISCOSITY    0.1
+#define DIFFUSION    0.2
+#define DISSIPATION 0.05
 
 /* Simulation parameters */
-#define NUM_ITER  30
+#define NUM_ITER   4
 #define DT       0.1
 
 /* Computed */

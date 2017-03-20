@@ -148,6 +148,7 @@ static float dot(float* vec0, float* vec1, int size) {
     return result;
 }
 
+/*
 static bool done = true;
 static bool done2 = false;
 static int i = 0;
@@ -251,33 +252,10 @@ static void poisson2d(float k1, float k2, float* S1, float* S0, int key, int b) 
     }
 }
 
-// static void lin_solve(int b, float *x, float *x0, float a, float c, int iter, int key) {
-//     int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
-//     int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
-//
-//     float cRecip = 1.0f / c;
-//     for (int k = 0; k < iter; k++) {
-//         for (int y = 1; y < cells_y - 1; y++) {
-//             for (int x = 1; i < cells_x - 1; x++) {
-//                 x[idx2d(y, x)] =
-//                     (x0[IX(i, j, m)]
-//                         + a*(    x[IX(i+1, j  , m  )]
-//                                 +x[IX(i-1, j  , m  )]
-//                                 +x[IX(i  , j+1, m  )]
-//                                 +x[IX(i  , j-1, m  )]
-//                                 +x[IX(i  , j  , m+1)]
-//                                 +x[IX(i  , j  , m-1)]
-//                        )) * cRecip;
-//             }
-//         }
-//         set_bnd(b, x, N);
-//     }
-// }
-
-static void diffuse(float* S1, float* S0, int key) {
+static void diffuse(float* S1, float* S0, float diff, int key) {
     memset(S1, 0, sizeof(float) * num_cells[key]);
-    float k1 = -DT * DIFFUSION;
-    float k2 = -DT * DIFFUSION;
+    float k1 = -DT * diff;
+    float k2 = -DT * diff;
     poisson2d(k1, k2, S1, S0, key, -1);
 }
 
@@ -292,7 +270,8 @@ static void project(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
     memset(S, 0, sizeof(float) * num_cells_s);
 
     // compute the divergence of the velocity field
-    float divergence[num_cells[0]];
+    float divergence[num_cells_s];
+    memset(divergence, 0, sizeof(float) * num_cells_s);
     for (y = 1; y < CELLS_Y - 1; ++y) {
         for (x = 1; x < CELLS_X - 1; ++x) {
             idx_yx = idx2d(y, x);
@@ -314,8 +293,72 @@ static void project(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
         }
     }
 
+    // boundary_reverse(U1_y, 1);
+    // boundary_reverse(U1_x, 2);
+}
+*/
+
+static void lin_solve(float* S1, float* S0, float a, float b, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    int (*idxf)(int, int);
+    idxf = (key == 2) ? &idx2dx : &idx2d;
+
+    for (int _ = 0; _ < NUM_ITER; ++_) {
+        for (int y = 1; y < cells_y - 1; ++y) {
+            for (int x = 1; x < cells_x - 1; ++x) {
+                S1[idxf(y, x)] = (S0[idxf(y, x)]
+                        + a * (S1[idxf(y + 1, x)] + S1[idxf(y - 1, x)]
+                             + S1[idxf(y, x + 1)] + S1[idxf(y, x - 1)])) / b;
+            }
+        }
+        boundary_reverse(S1, key);
+    }
+}
+
+static void diffuse(float* S1, float* S0, float diff, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    float a = DT * diff * (cells_y - 2) * (cells_x - 2);
+    lin_solve(S1, S0, a, 1 + 4 * a, key);
+}
+
+static void project(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
+    int y, x, idx_yx;
+
+    // construct initial guess for the solution
+    float S[num_cells_s];
+    memset(S, 0, sizeof(float) * num_cells_s);
+
+    // compute the divergence of the velocity field
+    float divergence[num_cells_s];
+    memset(divergence, 0, sizeof(float) * num_cells_s);
+    for (y = 1; y < CELLS_Y - 1; ++y) {
+        for (x = 1; x < CELLS_X - 1; ++x) {
+            idx_yx = idx2d(y, x);
+            divergence[idx_yx] = U0_y[idx2d(y + 1, x)] - U0_y[idx_yx]
+                               + U0_x[idx2dx(y, x + 1)] - U0_x[idx2dx(y, x)];
+        }
+    }
+
+    boundary_reverse(divergence, 0);
+    boundary_reverse(S, 0);
+    lin_solve(S, divergence, 1, 4, 0);
+
+    // subtract the gradient from the previous solution
+    for (y = 1; y < CELLS_Y - 1; ++y) {
+        for (x = 1; x < CELLS_X - 1; ++x) {
+            idx_yx = idx2d(y, x);
+            U1_y[idx_yx] = U0_y[idx_yx] - 0.5f * (S[idx2d(y + 1, x)] - S[idx2d(y, x)]);
+            idx_yx = idx2dx(y, x);
+            U1_x[idx_yx] = U0_x[idx_yx] - 0.5f * (S[idx2dx(y, x + 1)] - S[idx2dx(y, x)]);
+        }
+    }
+
     boundary_reverse(U1_y, 1);
-    boundary_reverse(U1_x, 2);
+    boundary_reverse(U1_x, 1);
 }
 
 static void dissipate(float* S1, float* S0) {
@@ -335,20 +378,20 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float fo
 
     // diffuse
     // cout << "first" << endl;
-    // diffuse(U0_y, U1_y, 1);
+    diffuse(U0_y, U1_y, VISCOSITY, 1);
     // if (!done2) { done = false; done2 = true; }
     // i++;
     // cout << "second" << endl;
-    // diffuse(U0_x, U1_x, 2);
+    diffuse(U0_x, U1_x, VISCOSITY, 2);
     // if (i >= 10) { done = true; }
 
     // ensure incompressibility via pressure correction
-    // project(U1_y, U1_x, U0_y, U0_x);
+    project(U1_y, U1_x, U0_y, U0_x);
 }
 
 void solver::s_step(float* S1, float* S0, float* U_y, float* U_x, float source) {
     add_force(S0, source * DT, 0);
     transport(S1, S0, U_y, U_x, 0);
-    // diffuse(S0, S1, 0);
-    // dissipate(S1, S0);
+    diffuse(S0, S1, DIFFUSION, 0);
+    dissipate(S1, S0);
 }

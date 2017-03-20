@@ -28,8 +28,8 @@ void init(void) {
     cb = 0.3;
     alpha = 0.03;
 
-    add_amount = 0.5f;
-    source = 10.0f;
+    add_amount = 3.5f;
+    source = 0.0f;
     force_y = -5.0f;
     force_x = 5.0f;
 
