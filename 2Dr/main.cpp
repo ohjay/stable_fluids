@@ -28,7 +28,7 @@ void init(void) {
     cb = 0.3;
     alpha = 0.03;
 
-    add_amount = 3.5f;
+    add_amount = 0.1f * max(CELLS_X, CELLS_Y);
     source = 0.0f;
     force_y = -5.0f;
     force_x = 5.0f;
@@ -49,9 +49,9 @@ void display(void) {
             if (DISPLAY_KEY == 0) {
                 color = fluid.S_at(y, x);
             } else if (DISPLAY_KEY == 1) {
-                color = fluid.Uy_at(y, x);
+                color = fabs(fluid.Uy_at(y, x));
             } else if (DISPLAY_KEY == 2) {
-                color = fluid.Ux_at(y, x);
+                color = fabs(fluid.Ux_at(y, x));
             }
 
             glColor4f(cr * color, cg * color, cb * color, alpha);
@@ -71,22 +71,23 @@ void reshape(int w, int h) {
     glViewport(0, 0, (GLsizei) w, (GLsizei) h);
 }
 
-void mouse(int button, int state, int x, int y) {
-    switch (button) {
-        case GLUT_LEFT_BUTTON:
-            left_mouse_down = state == GLUT_DOWN;
-            break;
-        default:
-            break;
-    }
-}
-
 void motion(int x, int y) {
     int cells_y = (DISPLAY_KEY == 1) ? CELLS_Y + 1 : CELLS_Y;
     int cells_x = (DISPLAY_KEY == 2) ? CELLS_X + 1 : CELLS_X;
 
-    mouse_y = (int) (((float) (window_height - y) / window_height) * (cells_y - 2));
-    mouse_x = (int) (((float) x / window_width) * (cells_x - 2));
+    mouse_y = (int) (((float) (window_height - y) / window_height) * (cells_y));
+    mouse_x = (int) (((float) x / window_width) * (cells_x));
+}
+
+void mouse(int button, int state, int x, int y) {
+    switch (button) {
+        case GLUT_LEFT_BUTTON:
+            left_mouse_down = state == GLUT_DOWN;
+            motion(x, y);
+            break;
+        default:
+            break;
+    }
 }
 
 void keyboard(unsigned char key, int x, int y) {
@@ -98,10 +99,10 @@ void keyboard(unsigned char key, int x, int y) {
             paused = !paused;
             break;
         case '=':
-            add_amount += 0.1f;
+            add_amount += 0.005f * max(CELLS_X, CELLS_Y);
             break;
         case '-':
-            add_amount = fmax(0.0f, add_amount - 0.1f);
+            add_amount = fmax(0.0f, add_amount - 0.005f * max(CELLS_X, CELLS_Y));
             break;
         default:
             break;
