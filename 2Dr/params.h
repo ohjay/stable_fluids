@@ -23,6 +23,7 @@
 /* Simulation parameters */
 #define NUM_ITER   4
 #define DT       0.1
+#define CLEANUP false
 
 /* Computed */
 #define num_cells_uy ((CELLS_Y + 1) * CELLS_X)

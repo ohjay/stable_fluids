@@ -54,9 +54,6 @@ void display(void) {
                 color = fluid.Ux_at(y, x);
             }
 
-            // cout << color << endl;
-            // if (!isnan(color)) { cout << y << ", " << x << endl; }
-
             glColor4f(cr * color, cg * color, cb * color, alpha);
             glRectf((x - 1.0f) * 2.0f / (cells_x - 2) - 1.0f, (y - 0.5f) * 2.0f / (cells_y - 2) - 1.0f,
                     (x + 1.0f) * 2.0f / (cells_x - 2) - 1.0f, (y + 0.5f) * 2.0f / (cells_y - 2) - 1.0f);
@@ -164,7 +161,7 @@ int main(int argc, char* argv[]) {
     try {
         glutMainLoop();
     } catch (const char* msg) {
-        // fluid.cleanup();
+        if (CLEANUP) { fluid.cleanup(); }
         cout << "[-] Program terminated." << endl;
     }
 
