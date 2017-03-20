@@ -23,20 +23,25 @@
 
 /* Grid parameters */
 #define NDIM         2 // currently assumed to be 2
-#define CELLS_Y    110
-#define CELLS_X    110
+#define CELLS_Y    100
+#define CELLS_X    100
 #define NUM_FLUIDS   7
 
 /* Fluid parameters */
 #define VORTICITY    1.0
 #define VISCOSITY    0.1
-#define DIFFUSION    0.2
+#define DIFFUSION   1e-3
 #define DISSIPATION 0.05
 
 /* Simulation parameters */
 #define NUM_ITER   5
 #define DT       0.1
 #define CLEANUP false
+
+/* Target-driven parameters */
+#define DRIVING_FORCE 1.0 // Vf in the paper
+#define ATTENUATION   1.0 // Vd in the paper
+#define GATHER_RATE   1.0 // Vg in the paper
 
 /* Computed */
 #define num_cells_uy ((CELLS_Y + 1) * CELLS_X)

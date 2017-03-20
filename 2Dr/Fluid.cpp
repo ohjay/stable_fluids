@@ -21,12 +21,21 @@ void Fluid::init(void) {
         S0[i] = new float[num_cells_s]();
         S1[i] = new float[num_cells_s]();
     }
+
+    target_driven = false;
+    memset(S_blur, 0, sizeof(float) * num_cells_s);
 }
 
 void Fluid::step(float force_y, float force_x, float source) {
-    solver::v_step(U1_y, U1_x, U0_y, U0_x, force_y, force_x);
-    for (int i = 0; i < NUM_FLUIDS; i++) {
-        solver::s_step(S1[i], S0[i], U1_y, U1_x, source);
+    if (target_driven) {
+        solver::gaussian_blur(S_blur, S0[target_fluid], 0);
+        solver::v_step_td(U1_y, U1_x, U0_y, U0_x, target_p, target_p_blur, S0[target_fluid], S_blur);
+        solver::s_step_td(S1[target_fluid], S0[target_fluid], U1_y, U1_x, source, target_p, target_p_blur);
+    } else {
+        solver::v_step(U1_y, U1_x, U0_y, U0_x, force_y, force_x);
+        for (int i = 0; i < NUM_FLUIDS; i++) {
+            solver::s_step(S1[i], S0[i], U1_y, U1_x, source);
+        }
     }
     swap_grids();
 }
@@ -61,4 +70,15 @@ float Fluid::Ux_at(int y, int x) {
 
 float Fluid::S_at(int y, int x, int i) {
     return S1[i][idx2d(y, x)];
+}
+
+void Fluid::save_density(int i) {
+    memcpy(target_p, S1[i], sizeof(float) * num_cells_s);
+    solver::gaussian_blur(target_p_blur, target_p, 0);
+    target_fluid = i;
+    memset(S1[i], 0, sizeof(float) * num_cells_s);
+}
+
+void Fluid::toggle_target_driven(void) {
+    target_driven = !target_driven;
 }

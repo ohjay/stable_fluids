@@ -19,6 +19,8 @@ float source, add_amount, force_y, force_x;
 double cr, cg, cb, alpha;
 float fluid_colors[NUM_FLUIDS][3];
 
+bool target_initialized;
+
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
 
@@ -39,6 +41,8 @@ void init(void) {
     source = 0.0f;
     force_y = -5.0f;
     force_x = 5.0f;
+
+    target_initialized = false;
 
     fluid.init();
 }
@@ -126,6 +130,13 @@ void keyboard(unsigned char key, int x, int y) {
             break;
         case ']':
             current_fluid = min(NUM_FLUIDS - 1, current_fluid + 1);
+            break;
+        case 't':
+            if (!target_initialized) {
+                fluid.save_density(current_fluid);
+                target_initialized = true;
+            }
+            fluid.toggle_target_driven();
             break;
         default:
             break;

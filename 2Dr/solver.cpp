@@ -262,6 +262,87 @@ static void dissipate(float* S1, float* S0) {
     }
 }
 
+static bool done = false;
+
+static void drive_force(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float* target_p, float* p) {
+    int idx_yx;
+    float hf_p, hf_p_star, dp_star;
+    for (int y = 1; y < CELLS_Y - 1; ++y) {
+        for (int x = 1; x < CELLS_X - 1; ++x) {
+            // add the vertical driving force
+            idx_yx = idx2d(y, x);
+            hf_p = (p[idx_yx] + p[idx2d(y + 1, x)]) * 0.5f;
+            hf_p_star = (target_p[idx_yx] + target_p[idx2d(y + 1, x)]) * 0.5f;
+            dp_star = target_p[idx2d(y + 1, x)] - target_p[idx_yx];
+            if (hf_p_star == 0.0f) {
+                U1_y[idx_yx] = U0_y[idx_yx];
+            } else {
+                U1_y[idx_yx] = U0_y[idx_yx] + DT * DRIVING_FORCE * (hf_p * dp_star / hf_p_star);
+            }
+
+            if (!done && isnan(U1_y[101])) { cout << y << ", " << x << ", " << U0_y[idx_yx] << ", " << hf_p << ", " << dp_star << ", " << hf_p_star << endl; done = true; }
+
+            // add the horizontal driving force
+            hf_p = (p[idx_yx] + p[idx2d(y, x + 1)]) * 0.5f;
+            hf_p_star = (target_p[idx_yx] + target_p[idx2d(y, x + 1)]) * 0.5f;
+            dp_star = target_p[idx2d(y, x + 1)] - target_p[idx_yx];
+            idx_yx = idx2dx(y, x);
+            if (hf_p_star == 0.0f) {
+                U1_x[idx_yx] = U0_x[idx_yx];
+            } else {
+                U1_x[idx_yx] = U0_x[idx_yx] + DT * DRIVING_FORCE * (hf_p * dp_star / hf_p_star);
+            }
+        }
+    }
+
+    if (!done && isnan(p[101])) { cout << "fml34" << endl; done = true; }
+}
+
+static void attenuate(float* field, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    int (*idxf)(int, int);
+    idxf = (key == 2) ? &idx2dx : &idx2d;
+
+    for (int y = 0; y < cells_y; ++y) {
+        for (int x = 0; x < cells_x; ++x) {
+            for (int _ = 0; _ < NUM_ITER; ++_) {
+                field[idxf(y, x)] /= DT * ATTENUATION + 1.0f;
+            }
+        }
+    }
+}
+
+// make sure to pass in the target densities here
+static void gather(float* S1, float* S0, float* ps, float* p_sblur) {
+    memcpy(S1, S0, sizeof(float) * num_cells_s);
+    float update0, update1;
+    int idx_yx, idx_y1x, idx_y_1x, idx_yx1, idx_yx_1;
+    for (int _ = 0; _ < NUM_ITER; ++_) {
+        for (int y = 1; y < CELLS_Y - 1; ++y) {
+            for (int x = 1; x < CELLS_X - 1; ++x) {
+                idx_yx   = idx2d(y,     x    );
+                idx_y1x  = idx2d(y + 1, x    );
+                idx_y_1x = idx2d(y - 1, x    );
+                idx_yx1  = idx2d(y,     x + 1);
+                idx_yx_1 = idx2d(y,     x - 1);
+
+                update0 = (S1[idx_y1x]  + ps[idx_yx] - ps[idx_y1x])  * p_sblur[idx_y1x]  * S1[idx_y1x]
+                        + (S1[idx_y_1x] + ps[idx_yx] - ps[idx_y_1x]) * p_sblur[idx_y_1x] * S1[idx_y_1x]
+                        + (S1[idx_yx1]  + ps[idx_yx] - ps[idx_yx1])  * p_sblur[idx_yx1]  * S1[idx_yx1]
+                        + (S1[idx_yx_1] + ps[idx_yx] - ps[idx_yx_1]) * p_sblur[idx_yx_1] * S1[idx_yx_1];
+
+                update1 = p_sblur[idx_y1x] * S1[idx_y1x] + p_sblur[idx_yx1] * S1[idx_yx1]
+                        + p_sblur[idx_yx] * 2;
+
+                S1[idx_yx] = (S0[idx_yx] + DT * GATHER_RATE * update0)
+                        / (DT * GATHER_RATE * update1 + 1.0f);
+            }
+        }
+    }
+}
+
 void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float force_y, float force_x) {
     // add forces
     add_force(U0_y, force_y * DT, 1);
@@ -287,4 +368,74 @@ void solver::s_step(float* S1, float* S0, float* U_y, float* U_x, float source) 
     transport(S1, S0, U_y, U_x, 0);
     diffuse(S0, S1, DIFFUSION, 0);
     dissipate(S1, S0);
+}
+
+void solver::v_step_td(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float* target_p,
+        float* target_p_blur, float* S, float* S_blur) {
+    // apply the driving force
+    if (!done && isnan(U0_y[101])) { cout << "fml3" << endl; done = true; }
+    if (!done && isnan(U0_x[101])) { cout << "fml4" << endl; done = true; }
+    drive_force(U1_y, U1_x, U0_y, U0_x, target_p_blur, S_blur);
+    if (!done && isnan(U1_y[101])) { cout << "fml5" << endl; done = true; }
+    if (!done && isnan(U1_x[101])) { cout << "fml6" << endl; done = true; }
+
+    // attenuate momentum
+    attenuate(U1_y, 1);
+    attenuate(U1_x, 2);
+
+    if (!done && isnan(U1_y[101])) { cout << "fml7" << endl; done = true; }
+    if (!done && isnan(U1_x[101])) { cout << "fml8" << endl; done = true; }
+
+    // advect the field through itself
+    transport(U0_y, U1_y, U1_y, U1_x, 1);
+    transport(U0_x, U1_x, U1_y, U1_x, 2);
+
+    if (!done && isnan(U0_y[101])) { cout << "fml9" << endl; done = true; }
+    if (!done && isnan(U0_x[101])) { cout << "fml10" << endl; done = true; }
+
+    // add vorticity
+    confine_vorticity(U0_y, U0_x);
+
+    if (!done && isnan(U0_y[101])) { cout << "fml11" << endl; done = true; }
+    if (!done && isnan(U0_x[101])) { cout << "fml12" << endl; done = true; }
+
+    // ensure incompressibility via pressure correction
+    project(U1_y, U1_x, U0_y, U0_x);
+
+    if (!done && isnan(U1_y[101])) { cout << "fml13" << endl; done = true; }
+    if (!done && isnan(U1_x[101])) { cout << "fml14" << endl; done = true; }
+}
+
+void solver::s_step_td(float* S1, float* S0, float* U_y, float* U_x, float source,
+        float* target_p, float* target_p_blur) {
+    add_force(S0, source * DT, 0);
+    if (!done && isnan(U_y[101])) { cout << "fml0" << endl; done = true; }
+    if (!done && isnan(U_x[101])) { cout << "fml1" << endl; done = true; }
+    transport(S1, S0, U_y, U_x, 0);
+    gather(S0, S1, target_p, target_p_blur);
+    *S1 = *S0;
+    if (!done && isnan(S1[101])) { cout << "fml30" << endl; done = true; }
+}
+
+// convolves the field with a 3x3 Gaussian kernel found on Wikipedia
+void solver::gaussian_blur(float* outfield, float* infield, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    int (*idxf)(int, int);
+    idxf = (key == 2) ? &idx2dx : &idx2d;
+
+    for (int y = 1; y < cells_y - 1; ++y) {
+        for (int x = 1; x < cells_x - 1; ++x) {
+            outfield[idxf(y, x)] = (infield[idxf(y - 1, x - 1)]
+                              + 2 * infield[idxf(y - 1, x    )]
+                              +     infield[idxf(y - 1, x + 1)]
+                              + 2 * infield[idxf(y,     x - 1)]
+                              + 4 * infield[idxf(y,     x    )]
+                              + 2 * infield[idxf(y,     x + 1)]
+                              +     infield[idxf(y + 1, x - 1)]
+                              + 2 * infield[idxf(y + 1, x    )]
+                              +     infield[idxf(y + 1, x + 1)]) / 16.0f;
+        }
+    }
 }
