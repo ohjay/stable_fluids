@@ -148,6 +148,51 @@ static float dot(float* vec0, float* vec1, int size) {
     return result;
 }
 
+static float curl(float y, float x, float* U_y, float* U_x) {
+    return (U_y[idx2d(y, x + 1)] - U_y[idx2d(y, x - 1)]
+            - U_x[idx2dx(y + 1, x)] + U_x[idx2dx(y - 1, x)]) * 0.5f;
+}
+
+static void confine_vorticity(float* U_y, float* U_x) {
+    // compute |w|, the curl, at each position in the velocity field
+    float w[num_cells_s];
+    for (int y = 1; y < CELLS_Y - 1; ++y) {
+        for (int x = 1; x < CELLS_X - 1; ++x) {
+            w[idx2d(y, x)] = fabs(curl(y, x, U_y, U_x));
+        }
+    }
+
+    float dw_dy, dw_dx, norm, w_yx;
+    float fy_conf[num_cells_s], fx_conf[num_cells_s];
+
+    for (int y = 2; y < CELLS_Y - 2; ++y) {
+        for (int x = 2; x < CELLS_X - 2; ++x) {
+            // now compute the gradient of |w|, again using central differences
+            dw_dy = (w[idx2d(y + 1, x)] - w[idx2d(y - 1, x)]) * 0.5f;
+            dw_dx = (w[idx2d(y, x + 1)] - w[idx2d(y, x - 1)]) * 0.5f;
+
+            // normalize to obtain N (unit vector pointing to center of rotation)
+            norm = sqrtf(dw_dy * dw_dy + dw_dx * dw_dx) + 1e-5;
+            dw_dy /= norm;
+            dw_dx /= norm;
+
+            // f_conf = N x w
+            w_yx = curl(y, x, U_y, U_x);
+            fy_conf[idx2d(y, x)] = VORTICITY * dw_dx * w_yx;
+            fx_conf[idx2d(y, x)] = VORTICITY * dw_dy * -w_yx;
+        }
+    }
+
+    int idx_yx;
+    for (int y = 2; y < CELLS_Y - 2; ++y) {
+        for (int x = 2; x < CELLS_X - 2; ++x) {
+            idx_yx = idx2d(y, x);
+            U_y[idx_yx] += fy_conf[idx_yx] * DT;
+            U_x[idx2dx(y, x)] += fx_conf[idx_yx] * DT;
+        }
+    }
+}
+
 static void lin_solve(float* S1, float* S0, float a, float b, int key) {
     int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
     int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
@@ -229,6 +274,9 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float fo
     // diffuse
     diffuse(U0_y, U1_y, VISCOSITY, 1);
     diffuse(U0_x, U1_x, VISCOSITY, 2);
+
+    // add vorticity
+    confine_vorticity(U0_y, U0_x);
 
     // ensure incompressibility via pressure correction
     project(U1_y, U1_x, U0_y, U0_x);
