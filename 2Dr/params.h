@@ -4,11 +4,12 @@
 // relevant systemwide parameters should go here
 
 /* GUI parameters */
-#define WINDOW_HEIGHT 600
-#define WINDOW_WIDTH  600
-#define WINDOW_Y      100
-#define WINDOW_X      400
-#define DISPLAY_KEY     0
+#define WINDOW_HEIGHT  600
+#define WINDOW_WIDTH   600
+#define WINDOW_Y       100
+#define WINDOW_X       400
+#define DISPLAY_KEY      0
+#define ADD_AMT_INIT  0.3f
 
 /* Colors */
 #define RED         {1.0f, 0.0f, 0.0f}
@@ -30,10 +31,10 @@
 #define VORTICITY    1.0
 #define VISCOSITY    0.1
 #define DIFFUSION    0.2
-#define DISSIPATION 0.01
+#define DISSIPATION 0.05
 
 /* Simulation parameters */
-#define NUM_ITER   4
+#define NUM_ITER   5
 #define DT       0.1
 #define CLEANUP false
 

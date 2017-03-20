@@ -34,7 +34,7 @@ void init(void) {
     for (int i = 0; i < NUM_FLUIDS; ++i)
         memcpy(fluid_colors[i], colors[i], sizeof(colors[i]));
 
-    add_amount = 0.1f * max(CELLS_X, CELLS_Y);
+    add_amount = ADD_AMT_INIT * max(CELLS_X, CELLS_Y);
     current_fluid = 0;
     source = 0.0f;
     force_y = -5.0f;
