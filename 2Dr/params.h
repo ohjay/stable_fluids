@@ -23,12 +23,12 @@
 
 /* Grid parameters */
 #define NDIM         2 // currently assumed to be 2
-#define CELLS_Y    100
-#define CELLS_X    100
+#define CELLS_Y    110
+#define CELLS_X    110
 #define NUM_FLUIDS   7
 
 /* Fluid parameters */
-#define VORTICITY    1.0
+#define VORTICITY    75.0
 #define VISCOSITY    0.1
 #define DIFFUSION   1e-3
 #define DISSIPATION 0.05

@@ -246,14 +246,68 @@ static void project(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
     for (y = 1; y < CELLS_Y - 1; ++y) {
         for (x = 1; x < CELLS_X - 1; ++x) {
             idx_yx = idx2d(y, x);
-            U1_y[idx_yx] = U0_y[idx_yx] - 0.5f * (S[idx2d(y + 1, x)] - S[idx2d(y, x)]);
+            U1_y[idx_yx] = U0_y[idx_yx] - 0.5f * (S[idx2d(y + 1, x)] - S[idx_yx]);
             idx_yx = idx2dx(y, x);
-            U1_x[idx_yx] = U0_x[idx_yx] - 0.5f * (S[idx2dx(y, x + 1)] - S[idx2dx(y, x)]);
+            U1_x[idx_yx] = U0_x[idx_yx] - 0.5f * (S[idx2d(y, x + 1)] - S[idx2d(y, x)]);
         }
     }
 
     boundary_reverse(U1_y, 1);
-    boundary_reverse(U1_x, 1);
+    boundary_reverse(U1_x, 2);
+}
+
+static void project2(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
+    int y, x, idx_yx;
+    float h = 1.0f / ((float) CELLS_X - 2.0f);
+
+    set_boundaries(U0_y, 0.0f, 1);
+    set_boundaries(U0_x, 0.0f, 2);
+
+    // construct initial guess for the solution
+    float S[num_cells_s];
+    memset(S, 0, sizeof(float) * num_cells_s);
+
+    // compute the divergence of the velocity field
+    float divergence[num_cells_s];
+    memset(divergence, 0, sizeof(float) * num_cells_s);
+    for (y = 1; y < CELLS_Y - 1; ++y) {
+        for (x = 1; x < CELLS_X - 1; ++x) {
+            idx_yx = idx2d(y, x);
+            divergence[idx_yx] = (U0_y[idx2d(y + 1, x)] - U0_y[idx_yx]
+                                + U0_x[idx2dx(y, x + 1)] - U0_x[idx2dx(y, x)]) * -0.5f * h;
+        }
+    }
+
+    boundary_reverse(divergence, 0);
+    boundary_reverse(S, 0);
+
+    // solve the Poisson equation
+    for (int _ = 0; _ < NUM_ITER; ++_) {
+        for (int y = 1; y < CELLS_Y - 1; ++y) {
+            for (int x = 1; x < CELLS_X - 1; ++x) {
+                idx_yx = idx2d(y, x);
+                S[idx_yx] = (divergence[idx_yx]
+                        + S[idx2d(y, x + 1)] + S[idx2d(y, x - 1)]
+                        + S[idx2d(y + 1, x)] + S[idx2d(y - 1, x)]) / 4.0f;
+            }
+        }
+        boundary_reverse(S, 0);
+    }
+
+    // subtract the gradient from the previous solution
+    memset(U1_y, 0, sizeof(float) * num_cells_uy);
+    memset(U1_x, 0, sizeof(float) * num_cells_ux);
+    for (y = 1; y < CELLS_Y - 1; ++y) {
+        for (x = 1; x < CELLS_X - 1; ++x) {
+            idx_yx = idx2d(y, x);
+            U1_y[idx_yx] = U0_y[idx_yx] - 0.5f * (S[idx2d(y + 1, x)] - S[idx2d(y - 1, x)]) / h;
+            idx_yx = idx2dx(y, x);
+            U1_x[idx_yx] = U0_x[idx_yx] - 0.5f * (S[idx2d(y, x + 1)] - S[idx2d(y, x - 1)]) / h;
+        }
+    }
+
+    boundary_reverse(U1_y, 1);
+    boundary_reverse(U1_x, 2);
 }
 
 static void dissipate(float* S1, float* S0) {
@@ -348,19 +402,35 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float fo
     add_force(U0_y, force_y * DT, 1);
     add_force(U0_x, force_x * DT, 2);
 
+    // diffuse
+    diffuse(U1_y, U0_y, VISCOSITY, 1);
+    diffuse(U1_x, U0_x, VISCOSITY, 2);
+
+    // add vorticity
+    confine_vorticity(U1_y, U1_x);
+
+    // cout << "before A " << U1_y[40] << endl;
+    project2(U0_y, U0_x, U1_y, U1_x);
+    // cout << "after A " << U0_y[40] << endl;
+
     // self-advect
     transport(U1_y, U0_y, U0_y, U0_x, 1);
     transport(U1_x, U0_x, U0_y, U0_x, 2);
 
-    // diffuse
-    diffuse(U0_y, U1_y, VISCOSITY, 1);
-    diffuse(U0_x, U1_x, VISCOSITY, 2);
-
     // add vorticity
-    confine_vorticity(U0_y, U0_x);
+    confine_vorticity(U1_y, U1_x);
 
     // ensure incompressibility via pressure correction
-    project(U1_y, U1_x, U0_y, U0_x);
+    // cout << "before B " << U1_y[40] << endl;
+    project2(U0_y, U0_x, U1_y, U1_x);
+    // cout << "after B " << U0_y[40] << endl;
+
+    for (int i = 0; i < num_cells_uy; ++i) {
+        U1_y[i] = U0_y[i];
+    }
+    for (int j = 0; j < num_cells_ux; ++j) {
+        U1_x[j] = U0_x[j];
+    }
 }
 
 void solver::s_step(float* S1, float* S0, float* U_y, float* U_x, float source) {
