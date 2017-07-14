@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <math.h>
 
 #define DEBUG true
 using namespace std;

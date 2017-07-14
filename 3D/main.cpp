@@ -4,23 +4,23 @@ int window_width = 600;
 int window_height = 600;
 
 Fluid fluid;
-double F[2];
-double Ssource, add_amount;
+float F[2];
+float Ssource, add_amount;
 int Fy, Fx;
 bool left_mouse_down, paused;
-double cr, cg, cb, alpha;
+float cr, cg, cb, alpha;
 
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
     // F[0] = -6.0f; F[1] = 6.0f;
-    F[0] = 2.0f; F[1] = 0.0f;
+    F[0] = 0.0f; F[1] = 0.0f;
     Fy = CELLS_PER_SIDE / 2;
     Fx = CELLS_PER_SIDE / 2;
     Ssource = 0.0f;
     cr = 0.7, cg = 0.2, cb = 0.9;
     alpha = 0.03;
     paused = false;
-    add_amount = 200.0f;
+    add_amount = 600.0f;
 }
 
 // everything we need in order to redraw the scene
@@ -29,12 +29,12 @@ void display(void) {
     glPushMatrix();
 
     // draw the density grid
-    double x, y, c00, c01, c10, c11;
+    float x, y, c00, c01, c10, c11;
 
     int h = CELLS_PER_SIDE;
     int w = CELLS_PER_SIDE;
-    double vsize = fluid.grid_spacing();
-    double half_side = CELLS_PER_SIDE;
+    float vsize = fluid.grid_spacing();
+    float half_side = CELLS_PER_SIDE / 2;
 
     glBegin(GL_QUADS);
 
@@ -45,17 +45,14 @@ void display(void) {
 
             // (TODO) these 1500s should not be here; they're just here for debugging help
             c00 = fluid.S_at(r, c) / 500.0f;
-            c01 = c10 = c11 = c00;
-            c00 = c01 = fluid.U10_at(r, c) / 500.0f;
-            c10 = c11 = fluid.U11_at(r, c) / 500.0f;
-            // c01 = fluid.S_at(r, c + 1) / 500.0f;
-            // c10 = fluid.S_at(r + 1, c) / 500.0f;
-            // c11 = fluid.S_at(r + 1, c + 1) / 500.0f;
+            c01 = fluid.S_at(r, c + 1) / 500.0f;
+            c10 = fluid.S_at(r + 1, c) / 500.0f;
+            c11 = fluid.S_at(r + 1, c + 1) / 500.0f;
 
-            glColor4f(cr*c11, cg*c11, cb*c11, alpha); glVertex2f((x + vsize) / half_side - 0.5f, (y + vsize) / half_side - 0.5f);
-            glColor4f(cr*c01, cg*c01, cb*c01, alpha); glVertex2f(x / half_side - 0.5f, (y + vsize) / half_side - 0.5f);
-            glColor4f(cr*c00, cg*c00, cb*c00, alpha); glVertex2f(x / half_side - 0.5f, y / half_side - 0.5f);
-            glColor4f(cr*c10, cg*c10, cb*c10, alpha); glVertex2f((x + vsize) / half_side - 0.5f, y / half_side - 0.5f);
+            glColor4f(cr*c11, cg*c11, cb*c11, alpha); glVertex2f((x + vsize) / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
+            glColor4f(cr*c01, cg*c01, cb*c01, alpha); glVertex2f(x / half_side - 1.0f, (y + vsize) / half_side - 1.0f);
+            glColor4f(cr*c00, cg*c00, cb*c00, alpha); glVertex2f(x / half_side - 1.0f, y / half_side - 1.0f);
+            glColor4f(cr*c10, cg*c10, cb*c10, alpha); glVertex2f((x + vsize) / half_side - 1.0f, y / half_side - 1.0f);
         }
     }
 
@@ -81,8 +78,8 @@ void mouse(int button, int state, int x, int y) {
             //     // Ssource += 120.0f;
             //
             //     // (TODO) should really use SIDE_LEN
-            //     Fy = (int) (((double) (window_width - y) / window_width) * CELLS_PER_SIDE);
-            //     Fx = (int) (((double) x / window_width) * CELLS_PER_SIDE);
+            //     Fy = (int) (((float) (window_width - y) / window_width) * CELLS_PER_SIDE);
+            //     Fx = (int) (((float) x / window_width) * CELLS_PER_SIDE);
             //     fluid.add_S_at(Fy, Fx, 500.0f);
             // }
             break;
@@ -93,8 +90,8 @@ void mouse(int button, int state, int x, int y) {
 
 void motion(int x, int y) {
     // do something here, like apply a force
-    Fy = (int) (((double) (window_width - y) / window_width) * CELLS_PER_SIDE);
-    Fx = (int) (((double) x / window_width) * CELLS_PER_SIDE);
+    Fy = (int) (((float) (window_width - y) / window_width) * CELLS_PER_SIDE);
+    Fx = (int) (((float) x / window_width) * CELLS_PER_SIDE);
 }
 
 void keyboard(unsigned char key, int x, int y) {
@@ -107,10 +104,10 @@ void keyboard(unsigned char key, int x, int y) {
             paused = !paused;
             break;
         case '=':
-            add_amount += 100.0f;
+            add_amount += 200.0f;
             break;
         case '-':
-            add_amount = fmax(0.0f, add_amount - 100.0f);
+            add_amount = max(0.0f, add_amount - 200.0f);
             break;
         default:
             break;
@@ -136,7 +133,7 @@ int main(int argc, char* argv[]) {
     glutCreateWindow("Stable Fluids");
 
     init();
-    fluid.init(VISC, KS, AS, DT);
+    fluid.init(0.1f, 0.2f, 0.3f, 0.4f);
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
@@ -150,7 +147,7 @@ int main(int argc, char* argv[]) {
         glutMainLoop();
     } catch (const char* msg) {
         fluid.cleanup();
-        std::cout << "[-] Program terminated." << std::endl;
+        std::cout << "[+] Program terminated." << std::endl;
     }
 
     return 0;
