@@ -1,130 +1,177 @@
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
+#include <GL/glut.h>
+#endif
+
 #include "Fluid.h"
 
-int window_width = 600;
-int window_height = 600;
+using namespace std;
+
+int window_height = WINDOW_HEIGHT;
+int window_width = WINDOW_WIDTH;
+bool left_mouse_down, paused;
+int mouse_y, mouse_x;
+int current_fluid;
 
 Fluid fluid;
-double F[2];
-double Ssource, add_amount;
-int Fy, Fx;
-bool left_mouse_down, paused;
+float source, add_amount, force_y, force_x;
 double cr, cg, cb, alpha;
+float fluid_colors[NUM_FLUIDS][3];
+
+bool target_initialized;
 
 void init(void) {
     glClearColor(0.0, 0.0, 0.0, 0.0);
-    // F[0] = -6.0f; F[1] = 6.0f;
-    F[0] = 2.0f; F[1] = 0.0f;
-    Fy = CELLS_PER_SIDE / 2;
-    Fx = CELLS_PER_SIDE / 2;
-    Ssource = 0.0f;
-    cr = 0.7, cg = 0.2, cb = 0.9;
-    alpha = 0.03;
+
+    left_mouse_down = false;
     paused = false;
-    add_amount = 200.0f;
+
+    cr = 0.7;
+    cg = 0.9;
+    cb = 0.3;
+    alpha = 0.03;
+
+    float colors[7][3] = ALL_COLORS; // {RED, GREEN, BLUE, YELLOW, CYAN, MAGENTA, WHITE};
+    for (int i = 0; i < NUM_FLUIDS; ++i)
+        memcpy(fluid_colors[i], colors[i], sizeof(colors[i]));
+
+    add_amount = ADD_AMT_INIT * max(CELLS_X, CELLS_Y);
+    current_fluid = 0;
+    source = 0.0f;
+    force_y = -5.0f;
+    force_x = 5.0f;
+
+    target_initialized = false;
+
+    fluid.init();
 }
 
-// everything we need in order to redraw the scene
 void display(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glPushMatrix();
 
-    // draw the density grid
-    double x, y, c00, c01, c10, c11;
+    int cells_y = (DISPLAY_KEY == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (DISPLAY_KEY == 2) ? CELLS_X + 1 : CELLS_X;
 
-    int h = CELLS_PER_SIDE;
-    int w = CELLS_PER_SIDE;
-    double vsize = fluid.grid_spacing();
-    double half_side = CELLS_PER_SIDE;
+    float color;
+    for (int y = 0; y < cells_y; ++y) {
+        for (int x = 0; x < cells_x; ++x) {
+            if (DISPLAY_KEY == 0) {
+                cr = 0.0f; cg = 0.0f; cb = 0.0f;
+                for (int i = 0; i < NUM_FLUIDS; i++) {
+                    cr += fluid_colors[i][0] * fluid.S_at(y, x, i);
+                    cg += fluid_colors[i][1] * fluid.S_at(y, x, i);
+                    cb += fluid_colors[i][2] * fluid.S_at(y, x, i);
+                }
+            } else {
+                if (DISPLAY_KEY == 1) {
+                    color = fabs(fluid.Uy_at(y, x));
+                } else if (DISPLAY_KEY == 2) {
+                    color = fabs(fluid.Ux_at(y, x));
+                }
+                cr = fluid_colors[0][0] * color;
+                cg = fluid_colors[0][1] * color;
+                cb = fluid_colors[0][2] * color;
+            }
 
-    glBegin(GL_QUADS);
-
-    for (int r = 0; r < h; ++r) {
-        y = (r + 0.5f) * vsize;
-        for (int c = 0; c < w; ++c) {
-            x = (c + 0.5f) * vsize;
-
-            // (TODO) these 1500s should not be here; they're just here for debugging help
-            c00 = fluid.S_at(r, c) / 500.0f;
-            c01 = c10 = c11 = c00;
-            c00 = c01 = fluid.U10_at(r, c) / 500.0f;
-            c10 = c11 = fluid.U11_at(r, c) / 500.0f;
-            // c01 = fluid.S_at(r, c + 1) / 500.0f;
-            // c10 = fluid.S_at(r + 1, c) / 500.0f;
-            // c11 = fluid.S_at(r + 1, c + 1) / 500.0f;
-
-            glColor4f(cr*c11, cg*c11, cb*c11, alpha); glVertex2f((x + vsize) / half_side - 0.5f, (y + vsize) / half_side - 0.5f);
-            glColor4f(cr*c01, cg*c01, cb*c01, alpha); glVertex2f(x / half_side - 0.5f, (y + vsize) / half_side - 0.5f);
-            glColor4f(cr*c00, cg*c00, cb*c00, alpha); glVertex2f(x / half_side - 0.5f, y / half_side - 0.5f);
-            glColor4f(cr*c10, cg*c10, cb*c10, alpha); glVertex2f((x + vsize) / half_side - 0.5f, y / half_side - 0.5f);
+            glColor4f(cr, cg, cb, alpha);
+            glRectf((x - 1.0f) * 2.0f / (cells_x - 2) - 1.0f, (y - 0.5f) * 2.0f / (cells_y - 2) - 1.0f,
+                    (x + 1.0f) * 2.0f / (cells_x - 2) - 1.0f, (y + 0.5f) * 2.0f / (cells_y - 2) - 1.0f);
         }
     }
 
-	glEnd ();
-	glFlush();
-	glutSwapBuffers();
+    glFlush();
+    glutSwapBuffers();
 }
 
 void reshape(int w, int h) {
-    window_width = w;
     window_height = h;
+    window_width = w;
+
     glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+}
+
+void motion(int x, int y) {
+    int cells_y = (DISPLAY_KEY == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (DISPLAY_KEY == 2) ? CELLS_X + 1 : CELLS_X;
+
+    mouse_y = (int) (((float) (window_height - y) / window_height) * (cells_y));
+    mouse_x = (int) (((float) x / window_width) * (cells_x));
 }
 
 void mouse(int button, int state, int x, int y) {
     switch (button) {
         case GLUT_LEFT_BUTTON:
             left_mouse_down = state == GLUT_DOWN;
-            // if (state == GLUT_DOWN) {
-            //     // do something here, like create a new object
-            //     // F[0] += 12.0f;
-            //     // F[1] += 15.0f;
-            //     // Ssource += 120.0f;
-            //
-            //     // (TODO) should really use SIDE_LEN
-            //     Fy = (int) (((double) (window_width - y) / window_width) * CELLS_PER_SIDE);
-            //     Fx = (int) (((double) x / window_width) * CELLS_PER_SIDE);
-            //     fluid.add_S_at(Fy, Fx, 500.0f);
-            // }
+            motion(x, y);
             break;
         default:
             break;
     }
 }
 
-void motion(int x, int y) {
-    // do something here, like apply a force
-    Fy = (int) (((double) (window_width - y) / window_width) * CELLS_PER_SIDE);
-    Fx = (int) (((double) x / window_width) * CELLS_PER_SIDE);
-}
-
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
         case 'q':
-            // do something here, like quit
             throw "exit";
             break;
         case ' ':
             paused = !paused;
             break;
         case '=':
-            add_amount += 100.0f;
+            add_amount += 0.005f * max(CELLS_X, CELLS_Y);
             break;
         case '-':
-            add_amount = fmax(0.0f, add_amount - 100.0f);
+            add_amount = fmax(0.0f, add_amount - 0.005f * max(CELLS_X, CELLS_Y));
+            break;
+        case '[':
+            current_fluid = max(0, current_fluid - 1);
+            break;
+        case ']':
+            current_fluid = min(NUM_FLUIDS - 1, current_fluid + 1);
+            break;
+        case 't':
+            if (!target_initialized) {
+                fluid.save_density(current_fluid);
+                target_initialized = true;
+            }
+            fluid.toggle_target_driven();
             break;
         default:
             break;
     }
 }
 
-// render the next frame of our simulation
+void special_keyboard(int key, int x, int y) {
+    switch (key) {
+        case GLUT_KEY_UP:
+            force_y += 1.0f;
+            break;
+        case GLUT_KEY_DOWN:
+            force_y -= 1.0f;
+            break;
+        case GLUT_KEY_LEFT:
+            force_x -= 1.0f;
+            break;
+        case GLUT_KEY_RIGHT:
+            force_x += 1.0f;
+            break;
+        default:
+            break;
+    }
+}
+
 void idle(void) {
-    if (left_mouse_down)
-        fluid.add_S_at(Fy, Fx, add_amount);
-    if (!paused) fluid.step(F, Ssource, Fy, Fx);
-    if (F[0] != 0) { F[0] = 0; }
-    if (F[1] != 0) { F[1] = 0; }
-    if (Ssource != 0) { Ssource = 0; }
+    if (left_mouse_down) {
+        fluid.add_source_at(mouse_y, mouse_x, current_fluid, add_amount);
+    }
+    if (!paused) {
+        fluid.step(force_y, force_x, source);
+    }
+    if (force_y != 0) { force_y = 0; }
+    if (force_x != 0) { force_x = 0; }
+    if (source != 0) { source = 0; }
     glutPostRedisplay();
 }
 
@@ -132,11 +179,10 @@ int main(int argc, char* argv[]) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(window_width, window_height);
-    glutInitWindowPosition(400, 100);
-    glutCreateWindow("Stable Fluids");
+    glutInitWindowPosition(WINDOW_X, WINDOW_Y);
+    glutCreateWindow("Unstable Fluids");
 
     init();
-    fluid.init(VISC, KS, AS, DT);
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
@@ -144,13 +190,14 @@ int main(int argc, char* argv[]) {
     glutPassiveMotionFunc(motion);
     glutMotionFunc(motion);
     glutKeyboardFunc(keyboard);
+    glutSpecialFunc(special_keyboard);
     glutIdleFunc(idle);
 
     try {
         glutMainLoop();
     } catch (const char* msg) {
-        fluid.cleanup();
-        std::cout << "[-] Program terminated." << std::endl;
+        if (CLEANUP) { fluid.cleanup(); }
+        cout << "[-] Program terminated." << endl;
     }
 
     return 0;

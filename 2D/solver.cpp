@@ -3,334 +3,509 @@
 using namespace solver;
 using namespace std;
 
-// get flattened index from 2D grid coordinates (y, x)
-// it's kind of annoying to have to use an array every time
-// y is like the column; x is like the row
-int solver::idx2d(int y, int x) {
-    return x + CELLS_PER_SIDE * y;
-}
+const int num_cells[3] = { num_cells_s, num_cells_uy, num_cells_ux };
 
-// add the force field multiplied by the time step to each value of the field
-static void add_force(float* field, float force, float dt) {
-    // for (int j = 1000; j < NUM_CELLS - 1000; ++j) {
-    //     field[j] += force;
-    // }
-
-    for (int j = 0; j < NUM_CELLS; ++j) {
-        field[j] += force * dt;
+static void add_force(float* field, float force, int key) {
+    for (int i = 1; i < num_cells[key] - 1; ++i) {
+        field[i] += force;
     }
 }
 
-// add a force at some specified position in the grid
-static void add_force_at(float* field, float force, float dt, int y, int x) {
-    for (int i = y - 5; i < y + 5; ++i) {
-        for (int j = x - 5; j < x + 5; ++j) {
-            field[idx2d(i, j)] += force * dt;
+// interpolate the value of field S at (y, x)
+static float lin_interp(float y, float x, float* S, int key) {
+    int y0 = (int) y, x0 = (int) x;
+    float ydiff = y - (float) y0, xdiff = x - (float) x0;
+    float vl, vr, tl, tr, bl, br;
+    int tl_idx, bl_idx, tr_idx, br_idx;
+
+    switch (key) {
+        case 0:
+            tl_idx = idx2d(y0,     x0);
+            bl_idx = idx2d(y0 + 1, x0);
+            tr_idx = idx2d(y0,     x0 + 1);
+            br_idx = idx2d(y0 + 1, x0 + 1);
+            break;
+        case 1:
+            if (ydiff > 0.5f) {
+                ydiff -= 0.5f;
+                tl_idx = idx2d(y0 + 1, x0);
+                bl_idx = idx2d(y0 + 2, x0);
+                tr_idx = idx2d(y0 + 1, x0 + 1);
+                br_idx = idx2d(y0 + 2, x0 + 1);
+            } else {
+                ydiff += 0.5f;
+                tl_idx = idx2d(y0,     x0);
+                bl_idx = idx2d(y0 + 1, x0);
+                tr_idx = idx2d(y0,     x0 + 1);
+                br_idx = idx2d(y0 + 1, x0 + 1);
+            }
+            break;
+        case 2:
+            if (xdiff > 0.5f) {
+                xdiff -= 0.5f;
+                tl_idx = idx2dx(y0,     x0 + 1);
+                bl_idx = idx2dx(y0 + 1, x0 + 1);
+                tr_idx = idx2dx(y0,     x0 + 2);
+                br_idx = idx2dx(y0 + 1, x0 + 2);
+            } else {
+                xdiff += 0.5f;
+                tl_idx = idx2dx(y0,     x0);
+                bl_idx = idx2dx(y0 + 1, x0);
+                tr_idx = idx2dx(y0,     x0 + 1);
+                br_idx = idx2dx(y0 + 1, x0 + 1);
+            }
+            break;
+        default:
+            return 0.0f;
+    }
+
+    tl = (tl_idx >= 0 && tl_idx < num_cells[key]) ? S[tl_idx] : 0.0f;
+    bl = (bl_idx >= 0 && bl_idx < num_cells[key]) ? S[bl_idx] : 0.0f;
+    tr = (tr_idx >= 0 && tr_idx < num_cells[key]) ? S[tr_idx] : 0.0f;
+    br = (br_idx >= 0 && br_idx < num_cells[key]) ? S[br_idx] : 0.0f;
+
+    vl = (1.0f - ydiff) * tl + ydiff * bl;
+    vr = (1.0f - ydiff) * tr + ydiff * br;
+
+    return (1.0f - xdiff) * vl + xdiff * vr;
+}
+
+static void trace_particle(float y, float x, float* U_y, float* U_x, float* X0) {
+    X0[0] = y - DT * lin_interp(y, x, U_y, 1);
+    X0[1] = x - DT * lin_interp(y, x, U_x, 2);
+}
+
+static void transport(float* S1, float* S0, float* U_y, float* U_x, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    for (int y = 1; y < cells_y - 1; ++y) {
+        for (int x = 1; x < cells_x - 1; ++x) {
+            float X0[2];
+            trace_particle(y, x, U_y, U_x, X0);
+            int idx = (key == 2) ? idx2dx(y, x) : idx2d(y, x);
+            S1[idx] = lin_interp(X0[0], X0[1], S0, 0);
         }
     }
 }
 
-// linearly interpolate value of scalar field S at the location X0
-// we should maybe be using Foster's staggered grid for this
-static float lin_interp(float* X0, float* S) {
-    if (NDIM == 2) {
-        X0[0] = fmin(CELLS_PER_SIDE * 1.0f, fmax(0.0f, X0[0]));
-        X0[1] = fmin(CELLS_PER_SIDE * 1.0f, fmax(0.0f, X0[1]));
-        int y0 = (int) X0[0];
-        int x0 = (int) X0[1];
-        float r;
-        if (modf(X0[0], &r) < 0.5f) y0--;
-        if (modf(X0[1], &r) < 0.5f) x0--;
-        int y1 = min(CELLS_PER_SIDE - 1, y0 + 1);
-        int x1 = min(CELLS_PER_SIDE - 1, x0 + 1);
-        y0 = max(0, y0); x0 = max(0, x0);
-        // X0 is the actual point
-        // x0 is the integer x-coordinate to the left
-        // y0 is the integer y-coordinate to the top
+static void set_boundaries(float* field, float val, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
 
-        float top_left = S[idx2d(y0, x0)];
-        float top_right = S[idx2d(y0, x1)];
-        float bottom_left = S[idx2d(y1, x0)];
-        float bottom_right = S[idx2d(y1, x1)];
-        float lw = fabs(x1 + 0.5f - X0[1]);
-        float rw = (lw != 0.0f) ? fabs(X0[1] - (x0 + 0.5f)) : 1.0f;
-        float tw = fabs(y1 + 0.5f - X0[0]);
-        float bw = (tw != 0.0f) ? fabs(X0[0] - (y0 + 0.5f)) : 1.0f;
-        float result = tw * (lw * top_left + rw * top_right) + bw * (lw * bottom_left + rw * bottom_right);
-        if (isnan(result)) throw "exit";
-        return result;
-    } else if (NDIM == 3) {
-        // (TODO) add trilinear interpolation code here
-        return 0.0f;
-    } else {
-        // currently we only support 2D and 3D animations
-        return 0.0f;
+    int idx;
+    for (int y = 0; y < cells_y; ++y) {
+        idx = (key == 2) ? idx2dx(y, 0) : idx2d(y, 0);
+        field[idx] = val;
+        idx = (key == 2) ? idx2dx(y, cells_x - 1) : idx2d(y, cells_x - 1);
+        field[idx] = val;
+    }
+
+    for (int x = 0; x < cells_x; ++x) {
+        idx = (key == 2) ? idx2dx(0, x) : idx2d(0, x);
+        field[idx] = val;
+        idx = (key == 2) ? idx2dx(cells_y - 1, x) : idx2d(cells_y - 1, x);
+        field[idx] = val;
     }
 }
 
+static void boundary_reverse(float* field, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
 
-// trace a path starting at X through the field U over a time -dt; store result in X0
-static void trace_particle(float* X, float** U, float dt, float* X0) {
-    float f_mid[NDIM];
-    for (int i = 0; i < NDIM; ++i) {
-        X0[i] = X[i] + dt * lin_interp(X, U[i]);
-        // f_mid[i] = X[i] + dt / 2.0f * lin_interp(X, U[i]); // U[0][idx] = y-dir @ index IDX
-        // interpolate in order to evaluate U at the midpoint
-        // X0[i] = f_mid[i] + dt / 2.0f * lin_interp(f_mid, U[i]);
-    }
-    // (TODO) add adaptive step size? (vary dt)
-}
+    int (*idxf)(int, int);
+    idxf = (key == 2) ? &idx2dx : &idx2d;
 
-// for reference:
-// to compute the dot product of two vectors A and B, use
-// std::inner_product(std::begin(a), std::end(a), std::begin(b), 0.0);
-
-// set the boundaries of the array ARR (with dimensions N) to VAL
-static void set_boundaries2d(float* arr, float val) {
-    // r = 0, r = N[0] - 1
-    for (int c = 0; c < CELLS_PER_SIDE; ++c) {
-        arr[idx2d(0, c)] = val;
-        arr[idx2d(CELLS_PER_SIDE - 1, c)] = val;
-    }
-
-    // c = 0, c = N[1] - 1
-    for (int r = 1; r < CELLS_PER_SIDE - 1; ++r) {
-        arr[idx2d(r, 0)] = val;
-        arr[idx2d(r, CELLS_PER_SIDE - 1)] = val;
-    }
-}
-
-// reverses direction of field at boundaries; option specifies which dimension we're handling
-// 0: vertical component, 1: horizontal component, 2: scalar field
-static void boundary_reverse(float* arr, int option) {
-    int nc = CELLS_PER_SIDE;
-    for (int i = 1; i < nc - 1; ++i) {
-        // vertical boundary reverse
-        arr[idx2d(0, i)] = (option == 0) ? fabs(arr[idx2d(1, i)]) : arr[idx2d(1, i)];
-        arr[idx2d(nc - 1, i)] = (option == 0) ? -fabs(arr[idx2d(nc - 2, i)]) : arr[idx2d(nc - 2, i)];
-
+    for (int y = 1; y < cells_y - 1; ++y) {
         // horizontal boundary reverse
-        arr[idx2d(i, 0)] = (option == 1) ? fabs(arr[idx2d(i, 1)]) : arr[idx2d(i, 1)];
-        arr[idx2d(i, nc - 1)] = (option == 1) ? -fabs(arr[idx2d(i, nc - 2)]) : arr[idx2d(i, nc - 2)];
+        field[idxf(y, 0)] = (key == 2) ? fabs(field[idxf(y, 1)]) : field[idxf(y, 1)];
+        field[idxf(y, cells_x - 1)] = (key == 2) ? -fabs(field[idxf(y, cells_x - 2)])
+                                                 : field[idxf(y, cells_x - 2)];
+    }
+
+    for (int x = 1; x < cells_x - 1; ++x) {
+        // vertical boundary reverse
+        field[idxf(0, x)] = (key == 1) ? fabs(field[idxf(1, x)]) : field[idxf(1, x)];
+        field[idxf(cells_y - 1, x)] = (key == 1) ? -fabs(field[idxf(cells_y - 2, x)])
+                                                 : field[idxf(cells_y - 2, x)];
     }
 
     // corners
-    arr[idx2d(0, 0)] = 0.5f * (arr[idx2d(1, 0)] + arr[idx2d(0, 1)]);
-    arr[idx2d(0, nc - 1)] = 0.5f * (arr[idx2d(1, nc - 1)] + arr[idx2d(0, nc - 2)]);
-    arr[idx2d(nc - 1, 0)] = 0.5f * (arr[idx2d(nc - 2, 0)] + arr[idx2d(nc - 1, 1)]);
-    arr[idx2d(nc - 1, nc - 1)] = 0.5f * (arr[idx2d(nc - 2, nc - 1)] + arr[idx2d(nc - 1, nc - 2)]);
+    field[idxf(0, 0)] = (field[idxf(1, 0)] + field[idxf(0, 1)]) * 0.5f;
+    field[idxf(0, cells_x - 1)] = (field[idxf(1, cells_x - 1)] +
+                                   field[idxf(0, cells_x - 2)]) * 0.5f;
+    field[idxf(cells_y - 1, 0)] = (field[idxf(cells_y - 2, 0)] +
+                                   field[idxf(cells_y - 1, 1)]) * 0.5f;
+    field[idxf(cells_y - 1, cells_x - 1)] = (field[idxf(cells_y - 2, cells_x - 1)]
+                                           + field[idxf(cells_y - 1, cells_x - 2)]) * 0.5f;
 }
 
-// solves discretized 2d poisson equation using conjugate gradient
-// finite difference version of eqn is as follows:
-//
-//   K1 (S1[i + 1, j] - 2 * S1[i, j] + S1[i - 1, j])
-// + K2 (S1[i, j + 1] - 2 * S1[i, j] + S1[i, j - 1])
-// + S1[i, j]
-// = S0[i, j]
-//
-// (we are solving for S1 here; this fn will save its result in the provided array)
-// (CG reference: https://people.eecs.berkeley.edu/~demmel/cs267/lecture24/lecture24.html)
-static void poisson2d(float k1, float k2, float* S1, float* S0, int option, int num_iter=20) {
-    // we will assume that S1 is already the initial solution guess (can theoretically be whatever)
+static float dot(float* vec0, float* vec1, int size) {
+    float result = 0.0f;
+    for (int i = 0; i < size; ++i) {
+        result += vec0[i] * vec1[i];
+    }
+    return result;
+}
 
-    int i, j;
+static float curl(float y, float x, float* U_y, float* U_x) {
+    return (U_y[idx2d(y, x + 1)] - U_y[idx2d(y, x - 1)]
+            - U_x[idx2dx(y + 1, x)] + U_x[idx2dx(y - 1, x)]) * 0.5f;
+}
 
-    // r = b - Ax
-    // compute Ax, aka A * S1, and subtract it from b (aka S0) at the same time in order to arrive at r
-    float r[NUM_CELLS];
-    for (i = 0; i < CELLS_PER_SIDE; ++i) { // row
-        for (j = 0; j < CELLS_PER_SIDE; ++j) { // column
-            float Ax_ij;
-            int idx_ij = idx2d(i, j);
-            Ax_ij = (1 - 2 * k1 - 2 * k2) * S1[idx_ij];
-            Ax_ij += k1 * S1[idx2d((i + 1) % CELLS_PER_SIDE, j)];
-            Ax_ij += k2 * S1[idx2d((i - 1 + CELLS_PER_SIDE) % CELLS_PER_SIDE, j)];
-            Ax_ij += k1 * S1[idx2d(i, (j + 1) % CELLS_PER_SIDE)];
-            Ax_ij += k2 * S1[idx2d(i, (j - 1 + CELLS_PER_SIDE) % CELLS_PER_SIDE)];
-            r[idx_ij] = S0[idx_ij] - Ax_ij;
+static void confine_vorticity(float* U_y, float* U_x) {
+    // compute |w|, the curl, at each position in the velocity field
+    float w[num_cells_s];
+    for (int y = 1; y < CELLS_Y - 1; ++y) {
+        for (int x = 1; x < CELLS_X - 1; ++x) {
+            w[idx2d(y, x)] = fabs(curl(y, x, U_y, U_x));
         }
     }
 
-    // p = r
-    float p[NUM_CELLS];
-    std::copy(std::begin(r), std::end(r), std::begin(p));
+    float dw_dy, dw_dx, norm, w_yx;
+    float fy_conf[num_cells_s], fx_conf[num_cells_s];
 
-    // new_r = r
-    float new_r[NUM_CELLS];
-    std::copy(std::begin(r), std::end(r), std::begin(new_r));
-    // for some # of iterations:
-    for (int _ = 0; _ < num_iter; ++_) {
-        // compute v = Ap
-        float v[NUM_CELLS];
-        for (i = 0; i < CELLS_PER_SIDE; ++i) { // row
-            for (j = 0; j < CELLS_PER_SIDE; ++j) { // column
-                int idx_ij = idx2d(i, j);
-                v[idx_ij] = (1 - 2 * k1 - 2 * k2) * p[idx_ij];
-                v[idx_ij] += k1 * p[idx2d((i + 1) % CELLS_PER_SIDE, j)];
-                v[idx_ij] += k2 * p[idx2d((i - 1) % CELLS_PER_SIDE, j)];
-                v[idx_ij] += k1 * p[idx2d(i, (j + 1) % CELLS_PER_SIDE)];
-                v[idx_ij] += k2 * p[idx2d(i, (j - 1) % CELLS_PER_SIDE)];
+    for (int y = 2; y < CELLS_Y - 2; ++y) {
+        for (int x = 2; x < CELLS_X - 2; ++x) {
+            // now compute the gradient of |w|, again using central differences
+            dw_dy = (w[idx2d(y + 1, x)] - w[idx2d(y - 1, x)]) * 0.5f;
+            dw_dx = (w[idx2d(y, x + 1)] - w[idx2d(y, x - 1)]) * 0.5f;
+
+            // normalize to obtain N (unit vector pointing to center of rotation)
+            norm = sqrtf(dw_dy * dw_dy + dw_dx * dw_dx) + 1e-5;
+            dw_dy /= norm;
+            dw_dx /= norm;
+
+            // f_conf = N x w
+            w_yx = curl(y, x, U_y, U_x);
+            fy_conf[idx2d(y, x)] = VORTICITY * dw_dx * w_yx;
+            fx_conf[idx2d(y, x)] = VORTICITY * dw_dy * -w_yx;
+        }
+    }
+
+    int idx_yx;
+    for (int y = 2; y < CELLS_Y - 2; ++y) {
+        for (int x = 2; x < CELLS_X - 2; ++x) {
+            idx_yx = idx2d(y, x);
+            U_y[idx_yx] += fy_conf[idx_yx] * DT;
+            U_x[idx2dx(y, x)] += fx_conf[idx_yx] * DT;
+        }
+    }
+}
+
+static void lin_solve(float* S1, float* S0, float a, float b, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    int (*idxf)(int, int);
+    idxf = (key == 2) ? &idx2dx : &idx2d;
+
+    for (int _ = 0; _ < NUM_ITER; ++_) {
+        for (int y = 1; y < cells_y - 1; ++y) {
+            for (int x = 1; x < cells_x - 1; ++x) {
+                S1[idxf(y, x)] = (S0[idxf(y, x)]
+                        + a * (S1[idxf(y + 1, x)] + S1[idxf(y - 1, x)]
+                             + S1[idxf(y, x + 1)] + S1[idxf(y, x - 1)])) / b;
             }
         }
-        // compute a = dot(r, r) / dot(p, v)
-        float rTr = std::inner_product(std::begin(r), std::end(r), std::begin(r), 0.0);
-        float pTv = std::inner_product(std::begin(p), std::end(p), std::begin(v), 0.0);
-        float a = (pTv != 0.0f) ? rTr / pTv : 0.0f;
-        // x = x + a * p
-        for (i = 0; i < NUM_CELLS; ++i) {
-            S1[i] = S1[i] + a * p[i];
-        }
-        // new_r = new_r - av (compute the updated residual)
-        for (i = 0; i < NUM_CELLS; ++i) {
-            new_r[i] -= a * v[i];
-        }
-        // g = dot(new_r, new_r) / dot(r, r)
-        float g = (rTr != 0) ? std::inner_product(std::begin(new_r), std::end(new_r), std::begin(new_r), 0.0) / rTr : 0.0f;
-
-        // p = new_r + g * p
-        for (i = 0; i < NUM_CELLS; ++i) {
-            p[i] = new_r[i] + g * p[i];
-        }
-
-        // r = new_r
-        memcpy(r, new_r, sizeof(r));
-
-        // set the boundaries of our current solution to 0 (Neumann condition)
-        // set_boundaries2d(S1, 0);
-
-        if (option == -1) {
-            set_boundaries2d(S1, 0);
-        } else if (option == 2) {
-            boundary_reverse(S1, 0);
-            boundary_reverse(S1, 1);
-        } else {
-            boundary_reverse(S1, option);
-        }
+        boundary_reverse(S1, key);
     }
 }
 
-// solve for the diffusion (currently only for 2D)
-static void diffuse(float* S1, float* S0, float ks, float dt, float D[NDIM]) {
-    float k1 = -dt * ks / (D[0] * D[0]);
-    float k2 = -dt * ks / (D[1] * D[1]);
-    poisson2d(k1, k2, S1, S0, -1);
+static void diffuse(float* S1, float* S0, float diff, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    float a = DT * diff * (cells_y - 2) * (cells_x - 2);
+    lin_solve(S1, S0, a, 1 + 4 * a, key);
 }
 
-// perform the projection (again, assuming 2D here)
-static void project(float** U1, float** U0, float dt, float D[NDIM]) {
-    int i, j, idx_ij;
+static void project(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
+    int y, x, idx_yx;
 
-    float k1 = 1.0f / (D[0] * D[0]);
-    float k2 = 1.0f / (D[1] * D[1]);
+    // construct initial guess for the solution
+    float S[num_cells_s];
+    memset(S, 0, sizeof(float) * num_cells_s);
 
-    // construct initial guess for the solution (x) as a bunch of 0s
-    float x[NUM_CELLS] = {};
-
-    // compute the divergence of the velocity field, to be used as b
-    float divergence[NUM_CELLS];
-    for (i = 0; i < CELLS_PER_SIDE; ++i) { // row
-        for (j = 0; j < CELLS_PER_SIDE; ++j) { // column
-            idx_ij = idx2d(i, j);
-            divergence[idx_ij] = ((U0[0][idx2d((i + 1) % CELLS_PER_SIDE, j)]
-                    - U0[0][idx2d((i - 1) % CELLS_PER_SIDE, j)]) / D[0]
-                    + (U0[1][idx2d(i, (j + 1) % CELLS_PER_SIDE)]
-                    - U0[1][idx2d(i, (j - 1) % CELLS_PER_SIDE)]) / D[1]) * 0.5f;
+    // compute the divergence of the velocity field
+    float divergence[num_cells_s];
+    memset(divergence, 0, sizeof(float) * num_cells_s);
+    for (y = 1; y < CELLS_Y - 1; ++y) {
+        for (x = 1; x < CELLS_X - 1; ++x) {
+            idx_yx = idx2d(y, x);
+            divergence[idx_yx] = U0_y[idx2d(y + 1, x)] - U0_y[idx_yx]
+                               + U0_x[idx2dx(y, x + 1)] - U0_x[idx2dx(y, x)];
         }
     }
 
-    boundary_reverse(divergence, -1);
-    // set_boundaries2d(divergence, 0);
-    poisson2d(k1, k2, x, divergence, 2);
-
-    int idx_i1j, idx_i_1j, idx_ij1, idx_ij_1;
+    boundary_reverse(divergence, 0);
+    boundary_reverse(S, 0);
+    lin_solve(S, divergence, 1, 4, 0);
 
     // subtract the gradient from the previous solution
-    // x is the solution here; it's called S in the paper
-    for (i = 0; i < CELLS_PER_SIDE; ++i) { // row
-        for (j = 0; j < CELLS_PER_SIDE; ++j) { // column
-            idx_ij   = idx2d(i, j);
-            idx_i1j  = idx2d((i + 1) % CELLS_PER_SIDE, j);
-            idx_i_1j = idx2d((i - 1) % CELLS_PER_SIDE, j);
-            idx_ij1  = idx2d(i, (j + 1) % CELLS_PER_SIDE);
-            idx_ij_1 = idx2d(i, (j - 1) % CELLS_PER_SIDE);
-
-            U1[0][idx_ij] = U0[0][idx_ij] - 0.5f * (x[idx_i1j] - x[idx_i_1j]) / D[0];
-            U1[1][idx_ij] = U0[1][idx_ij] - 0.5f * (x[idx_ij1] - x[idx_ij_1]) / D[1];
+    for (y = 1; y < CELLS_Y - 1; ++y) {
+        for (x = 1; x < CELLS_X - 1; ++x) {
+            idx_yx = idx2d(y, x);
+            U1_y[idx_yx] = U0_y[idx_yx] - 0.5f * (S[idx2d(y + 1, x)] - S[idx_yx]);
+            idx_yx = idx2dx(y, x);
+            U1_x[idx_yx] = U0_x[idx_yx] - 0.5f * (S[idx2d(y, x + 1)] - S[idx2d(y, x)]);
         }
     }
 
-    // set the boundaries one final time
-    boundary_reverse(U1[0], 0);
-    boundary_reverse(U1[1], 1);
-
-    // set_boundaries2d(U1[0], 0);
-    // set_boundaries2d(U1[1], 0);
+    boundary_reverse(U1_y, 1);
+    boundary_reverse(U1_x, 2);
 }
 
-// divide each element of S0 by (1 + dt * as) and store in S1
-static void dissipate(float* S1, float* S0, float as, float dt) {
-    for (int j = 0; j < NUM_CELLS; ++j) {
-        S0[j] = S1[j] / (1.f + dt * as);
-    }
-}
+static void project2(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
+    int y, x, idx_yx;
+    float h = 1.0f / ((float) CELLS_X - 2.0f);
 
-// accounts for movement of substance due to velocity field
-static void transport(float* S1, float* S0, float** U, float dt, float O[NDIM], float D[NDIM], int option) {
-    for (int i = 0; i < CELLS_PER_SIDE; ++i) {
-        for (int j = 0; j < CELLS_PER_SIDE; ++j) {
-            // add 0.5 to each coordinate in order to get to the center of the cell
-            float X[NDIM];
-            X[0] = O[0] + (0.5f + i) * D[0];
-            X[1] = O[1] + (0.5f + j) * D[1];
+    set_boundaries(U0_y, 0.0f, 1);
+    set_boundaries(U0_x, 0.0f, 2);
 
-            float X0[NDIM];
-            trace_particle(X, U, -dt, X0);
-            S1[idx2d(i, j)] = lin_interp(X0, S0);
+    // construct initial guess for the solution
+    float S[num_cells_s];
+    memset(S, 0, sizeof(float) * num_cells_s);
+
+    // compute the divergence of the velocity field
+    float divergence[num_cells_s];
+    memset(divergence, 0, sizeof(float) * num_cells_s);
+    for (y = 1; y < CELLS_Y - 1; ++y) {
+        for (x = 1; x < CELLS_X - 1; ++x) {
+            idx_yx = idx2d(y, x);
+            divergence[idx_yx] = (U0_y[idx2d(y + 1, x)] - U0_y[idx_yx]
+                                + U0_x[idx2dx(y, x + 1)] - U0_x[idx2dx(y, x)]) * -0.5f * h;
         }
     }
-    // boundary_reverse(S1, option);
+
+    boundary_reverse(divergence, 0);
+    boundary_reverse(S, 0);
+
+    // solve the Poisson equation
+    for (int _ = 0; _ < NUM_ITER; ++_) {
+        for (int y = 1; y < CELLS_Y - 1; ++y) {
+            for (int x = 1; x < CELLS_X - 1; ++x) {
+                idx_yx = idx2d(y, x);
+                S[idx_yx] = (divergence[idx_yx]
+                        + S[idx2d(y, x + 1)] + S[idx2d(y, x - 1)]
+                        + S[idx2d(y + 1, x)] + S[idx2d(y - 1, x)]) / 4.0f;
+            }
+        }
+        boundary_reverse(S, 0);
+    }
+
+    // subtract the gradient from the previous solution
+    memset(U1_y, 0, sizeof(float) * num_cells_uy);
+    memset(U1_x, 0, sizeof(float) * num_cells_ux);
+    for (y = 1; y < CELLS_Y - 1; ++y) {
+        for (x = 1; x < CELLS_X - 1; ++x) {
+            idx_yx = idx2d(y, x);
+            U1_y[idx_yx] = U0_y[idx_yx] - 0.5f * (S[idx2d(y + 1, x)] - S[idx2d(y - 1, x)]) / h;
+            idx_yx = idx2dx(y, x);
+            U1_x[idx_yx] = U0_x[idx_yx] - 0.5f * (S[idx2d(y, x + 1)] - S[idx2d(y, x - 1)]) / h;
+        }
+    }
+
+    boundary_reverse(U1_y, 1);
+    boundary_reverse(U1_x, 2);
 }
 
-// considerations:
-// should I move these methods to the Fluid class? (probably, I think) - oj
-
-// velocity field solver
-void solver::v_step(float** U1, float** U0, float visc, float* F, float dt,
-        float O[NDIM], float D[NDIM]) {
-    for (int i = 0; i < NDIM; ++i) {
-        add_force(U0[i], F[i], dt);
+static void dissipate(float* S1, float* S0) {
+    for (int i = 0; i < num_cells_s; ++i) {
+        S1[i] = S0[i] / (1.0f + DT * DISSIPATION);
     }
-    for (int i = 0; i < NDIM; ++i) {
-        transport(U1[i], U0[i], U0, dt, O, D, i);
-    }
-    for (int i = 0; i < NDIM; ++i) {
-        diffuse(U0[i], U1[i], visc, dt, D); // notice that U0 and U1 switch
-        // (TODO) resolve all of the U0 and U1 switches
-        // (TODO) shouldn't it be U1, U0?
-        /*
-        explanation! so it's something like this:
-        w4 = proj(w3)
-        w3 = diff(w2)
-        w2 = trans(w1)
-        w1 = add_f(w0)
-        w0 starts off as u0, and then u0 is modified to become w1
-        then u1 becomes w2 by transporting u0
-        we need w3 to be based on w2, and we don't need w1 anymore
-        so we use u0 as a buffer to store w3
-        and then we project, setting u1 to w4 based on u0 = w3
-        so we're not really diffusing u0 based on u1, it's just to avoid \
-        doing a lot of swaps of u0 and u1 or use temporary buffers
-        */
-    }
-    project(U1, U0, dt, D);
 }
 
-// scalar field solver
-void solver::s_step(float* S1, float* S0, float ks, float as, float** U, float source, float dt,
-        float O[NDIM], float D[NDIM], int Fy, int Fx) {
-    add_force(S0, source, dt);
-    transport(S1, S0, U, dt, O, D, -1);
-    diffuse(S0, S1, ks, dt, D);
-    dissipate(S1, S0, as, dt);
+static bool done = false;
+
+static void drive_force(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float* target_p, float* p) {
+    int idx_yx;
+    float hf_p, hf_p_star, dp_star;
+    for (int y = 1; y < CELLS_Y - 1; ++y) {
+        for (int x = 1; x < CELLS_X - 1; ++x) {
+            // add the vertical driving force
+            idx_yx = idx2d(y, x);
+            hf_p = (p[idx_yx] + p[idx2d(y + 1, x)]) * 0.5f;
+            hf_p_star = (target_p[idx_yx] + target_p[idx2d(y + 1, x)]) * 0.5f;
+            dp_star = target_p[idx2d(y + 1, x)] - target_p[idx_yx];
+            if (hf_p_star == 0.0f) {
+                U1_y[idx_yx] = U0_y[idx_yx];
+            } else {
+                U1_y[idx_yx] = U0_y[idx_yx] + DT * DRIVING_FORCE * (hf_p * dp_star / hf_p_star);
+            }
+
+            if (!done && isnan(U1_y[101])) { cout << y << ", " << x << ", " << U0_y[idx_yx] << ", " << hf_p << ", " << dp_star << ", " << hf_p_star << endl; done = true; }
+
+            // add the horizontal driving force
+            hf_p = (p[idx_yx] + p[idx2d(y, x + 1)]) * 0.5f;
+            hf_p_star = (target_p[idx_yx] + target_p[idx2d(y, x + 1)]) * 0.5f;
+            dp_star = target_p[idx2d(y, x + 1)] - target_p[idx_yx];
+            idx_yx = idx2dx(y, x);
+            if (hf_p_star == 0.0f) {
+                U1_x[idx_yx] = U0_x[idx_yx];
+            } else {
+                U1_x[idx_yx] = U0_x[idx_yx] + DT * DRIVING_FORCE * (hf_p * dp_star / hf_p_star);
+            }
+        }
+    }
+
+    if (!done && isnan(p[101])) { cout << "fml34" << endl; done = true; }
+}
+
+static void attenuate(float* field, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    int (*idxf)(int, int);
+    idxf = (key == 2) ? &idx2dx : &idx2d;
+
+    for (int y = 0; y < cells_y; ++y) {
+        for (int x = 0; x < cells_x; ++x) {
+            for (int _ = 0; _ < NUM_ITER; ++_) {
+                field[idxf(y, x)] /= DT * ATTENUATION + 1.0f;
+            }
+        }
+    }
+}
+
+// make sure to pass in the target densities here
+static void gather(float* S1, float* S0, float* ps, float* p_sblur) {
+    memcpy(S1, S0, sizeof(float) * num_cells_s);
+    float update0, update1;
+    int idx_yx, idx_y1x, idx_y_1x, idx_yx1, idx_yx_1;
+    for (int _ = 0; _ < NUM_ITER; ++_) {
+        for (int y = 1; y < CELLS_Y - 1; ++y) {
+            for (int x = 1; x < CELLS_X - 1; ++x) {
+                idx_yx   = idx2d(y,     x    );
+                idx_y1x  = idx2d(y + 1, x    );
+                idx_y_1x = idx2d(y - 1, x    );
+                idx_yx1  = idx2d(y,     x + 1);
+                idx_yx_1 = idx2d(y,     x - 1);
+
+                update0 = (S1[idx_y1x]  + ps[idx_yx] - ps[idx_y1x])  * p_sblur[idx_y1x]  * S1[idx_y1x]
+                        + (S1[idx_y_1x] + ps[idx_yx] - ps[idx_y_1x]) * p_sblur[idx_y_1x] * S1[idx_y_1x]
+                        + (S1[idx_yx1]  + ps[idx_yx] - ps[idx_yx1])  * p_sblur[idx_yx1]  * S1[idx_yx1]
+                        + (S1[idx_yx_1] + ps[idx_yx] - ps[idx_yx_1]) * p_sblur[idx_yx_1] * S1[idx_yx_1];
+
+                update1 = p_sblur[idx_y1x] * S1[idx_y1x] + p_sblur[idx_yx1] * S1[idx_yx1]
+                        + p_sblur[idx_yx] * 2;
+
+                S1[idx_yx] = (S0[idx_yx] + DT * GATHER_RATE * update0)
+                        / (DT * GATHER_RATE * update1 + 1.0f);
+            }
+        }
+    }
+}
+
+void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float force_y, float force_x) {
+    // add forces
+    add_force(U0_y, force_y * DT, 1);
+    add_force(U0_x, force_x * DT, 2);
+
+    // diffuse
+    diffuse(U1_y, U0_y, VISCOSITY, 1);
+    diffuse(U1_x, U0_x, VISCOSITY, 2);
+
+    // add vorticity
+    confine_vorticity(U1_y, U1_x);
+
+    // cout << "before A " << U1_y[40] << endl;
+    project2(U0_y, U0_x, U1_y, U1_x);
+    // cout << "after A " << U0_y[40] << endl;
+
+    // self-advect
+    transport(U1_y, U0_y, U0_y, U0_x, 1);
+    transport(U1_x, U0_x, U0_y, U0_x, 2);
+
+    // add vorticity
+    confine_vorticity(U1_y, U1_x);
+
+    // ensure incompressibility via pressure correction
+    // cout << "before B " << U1_y[40] << endl;
+    project2(U0_y, U0_x, U1_y, U1_x);
+    // cout << "after B " << U0_y[40] << endl;
+
+    for (int i = 0; i < num_cells_uy; ++i) {
+        U1_y[i] = U0_y[i];
+    }
+    for (int j = 0; j < num_cells_ux; ++j) {
+        U1_x[j] = U0_x[j];
+    }
+}
+
+void solver::s_step(float* S1, float* S0, float* U_y, float* U_x, float source) {
+    add_force(S0, source * DT, 0);
+    transport(S1, S0, U_y, U_x, 0);
+    diffuse(S0, S1, DIFFUSION, 0);
+    dissipate(S1, S0);
+}
+
+void solver::v_step_td(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float* target_p,
+        float* target_p_blur, float* S, float* S_blur) {
+    // apply the driving force
+    if (!done && isnan(U0_y[101])) { cout << "fml3" << endl; done = true; }
+    if (!done && isnan(U0_x[101])) { cout << "fml4" << endl; done = true; }
+    drive_force(U1_y, U1_x, U0_y, U0_x, target_p_blur, S_blur);
+    if (!done && isnan(U1_y[101])) { cout << "fml5" << endl; done = true; }
+    if (!done && isnan(U1_x[101])) { cout << "fml6" << endl; done = true; }
+
+    // attenuate momentum
+    attenuate(U1_y, 1);
+    attenuate(U1_x, 2);
+
+    if (!done && isnan(U1_y[101])) { cout << "fml7" << endl; done = true; }
+    if (!done && isnan(U1_x[101])) { cout << "fml8" << endl; done = true; }
+
+    // advect the field through itself
+    transport(U0_y, U1_y, U1_y, U1_x, 1);
+    transport(U0_x, U1_x, U1_y, U1_x, 2);
+
+    if (!done && isnan(U0_y[101])) { cout << "fml9" << endl; done = true; }
+    if (!done && isnan(U0_x[101])) { cout << "fml10" << endl; done = true; }
+
+    // add vorticity
+    confine_vorticity(U0_y, U0_x);
+
+    if (!done && isnan(U0_y[101])) { cout << "fml11" << endl; done = true; }
+    if (!done && isnan(U0_x[101])) { cout << "fml12" << endl; done = true; }
+
+    // ensure incompressibility via pressure correction
+    project(U1_y, U1_x, U0_y, U0_x);
+
+    if (!done && isnan(U1_y[101])) { cout << "fml13" << endl; done = true; }
+    if (!done && isnan(U1_x[101])) { cout << "fml14" << endl; done = true; }
+}
+
+void solver::s_step_td(float* S1, float* S0, float* U_y, float* U_x, float source,
+        float* target_p, float* target_p_blur) {
+    add_force(S0, source * DT, 0);
+    if (!done && isnan(U_y[101])) { cout << "fml0" << endl; done = true; }
+    if (!done && isnan(U_x[101])) { cout << "fml1" << endl; done = true; }
+    transport(S1, S0, U_y, U_x, 0);
+    gather(S0, S1, target_p, target_p_blur);
+    *S1 = *S0;
+    if (!done && isnan(S1[101])) { cout << "fml30" << endl; done = true; }
+}
+
+// convolves the field with a 3x3 Gaussian kernel found on Wikipedia
+void solver::gaussian_blur(float* outfield, float* infield, int key) {
+    int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
+    int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
+
+    int (*idxf)(int, int);
+    idxf = (key == 2) ? &idx2dx : &idx2d;
+
+    for (int y = 1; y < cells_y - 1; ++y) {
+        for (int x = 1; x < cells_x - 1; ++x) {
+            outfield[idxf(y, x)] = (infield[idxf(y - 1, x - 1)]
+                              + 2 * infield[idxf(y - 1, x    )]
+                              +     infield[idxf(y - 1, x + 1)]
+                              + 2 * infield[idxf(y,     x - 1)]
+                              + 4 * infield[idxf(y,     x    )]
+                              + 2 * infield[idxf(y,     x + 1)]
+                              +     infield[idxf(y + 1, x - 1)]
+                              + 2 * infield[idxf(y + 1, x    )]
+                              +     infield[idxf(y + 1, x + 1)]) / 16.0f;
+        }
+    }
 }

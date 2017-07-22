@@ -8,7 +8,7 @@ LDFLAGS= -lGL -lGLU -lglut
 endif
 
 sim: Fluid.h solver.h
-	g++ $(CFLAGS) -g -rdynamic -o sim main.cpp Fluid.cpp solver.cpp debug.cpp $(LDFLAGS)
+	g++ $(CFLAGS) -g -rdynamic -o sim main.cpp Fluid.cpp solver.cpp $(LDFLAGS)
 
 clean:
 	$(RM) sim

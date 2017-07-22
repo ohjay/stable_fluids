@@ -1,83 +1,84 @@
 #include "Fluid.h"
 
-static void swap2d(double*** arr0, double*** arr1) {
-    double** temp = *arr0;
-    *arr0 = *arr1;
-    *arr1 = temp;
+void Fluid::swap_grids(void) {
+    float* temp;
+    temp = U0_y; U0_y = U1_y; U1_y = temp;
+    temp = U0_x; U0_x = U1_x; U1_x = temp;
+    for (int i = 0; i < NUM_FLUIDS; i++) {
+        S0[i] = S1[i];
+    }
 }
 
-static void swap1d(double** arr0, double** arr1) {
-    double* temp = *arr0;
-    *arr0 = *arr1;
-    *arr1 = temp;
-}
+void Fluid::init(void) {
+    U0_y = new float[num_cells_uy]();
+    U0_x = new float[num_cells_ux]();
+    U1_y = new float[num_cells_uy]();
+    U1_x = new float[num_cells_ux]();
 
-void Fluid::init(double visc, double ks, double as, double dt) {
-    (*this).visc = visc;
-    (*this).ks = ks;
-    (*this).as = as;
-    (*this).dt = dt;
-
-    // set grid attributes
-    for (int i = 0; i < NDIM; ++i) {
-        O[i] = 0.f;
-        D[i] = SIDE_LEN / CELLS_PER_SIDE;
+    S0 = new float*[NUM_FLUIDS]();
+    S1 = new float*[NUM_FLUIDS]();
+    for (int i = 0; i < NUM_FLUIDS; i++) {
+        S0[i] = new float[num_cells_s]();
+        S1[i] = new float[num_cells_s]();
     }
 
-    // initialize grids [(TODO) don't forget to delete this memory later]
-    U0 = new double*[NDIM]; U1 = new double*[NDIM];
-    for (int i = 0; i < NDIM; ++i) {
-        // for velocity fields (fluid)
-        U0[i] = new double[NUM_CELLS]();
-        U1[i] = new double[NUM_CELLS]();
+    target_driven = false;
+    memset(S_blur, 0, sizeof(float) * num_cells_s);
+}
+
+void Fluid::step(float force_y, float force_x, float source) {
+    if (target_driven) {
+        solver::gaussian_blur(S_blur, S0[target_fluid], 0);
+        solver::v_step_td(U1_y, U1_x, U0_y, U0_x, target_p, target_p_blur, S0[target_fluid], S_blur);
+        solver::s_step_td(S1[target_fluid], S0[target_fluid], U1_y, U1_x, source, target_p, target_p_blur);
+    } else {
+        solver::v_step(U1_y, U1_x, U0_y, U0_x, force_y, force_x);
+        for (int i = 0; i < NUM_FLUIDS; i++) {
+            solver::s_step(S1[i], S0[i], U1_y, U1_x, source);
+        }
     }
-
-    // for density fields (substance)
-    S0 = new double[NUM_CELLS]();
-    S1 = new double[NUM_CELLS]();
-}
-
-void Fluid::step(double F[2], double Ssource, int Fy, int Fx) {
-    // handle display and user interaction
-    // get forces F and sources Ssource from UI
-
-    // swap U1 and U0, swap S1 and S0
-    swap2d(&U1, &U0); swap1d(&S1, &S0);
-
-    // perform a velocity step (using U1, U0, visc, F, and dt)
-    solver::v_step(U1, U0, visc, F, dt, O, D);
-
-    // perform a scalar step (using S1, S0, kS, aS, U1, Ssource, and dt)
-    solver::s_step(S1, S0, ks, as, U1, Ssource, dt, O, D, Fy, Fx);
-}
-
-double Fluid::grid_spacing() {
-    return (D[0] > D[1]) ? D[0] : D[1];
-}
-
-double Fluid::S_at(int y, int x) {
-    return S1[solver::idx2d(y, x)];
-}
-
-double Fluid::U10_at(int y, int x) {
-    return U1[0][solver::idx2d(y, x)] * 1000;
-}
-
-double Fluid::U11_at(int y, int x) {
-    return U1[1][solver::idx2d(y, x)] * 1000;
-}
-
-void Fluid::add_S_at(int y, int x, double source) {
-    S1[solver::idx2d(y, x)] += source;
+    swap_grids();
 }
 
 void Fluid::cleanup(void) {
-    for (int i = 0; i < NDIM; ++i) {
-        delete[] U0[i];
-        delete[] U1[i];
+    delete[] U0_y;
+    delete[] U0_x;
+    delete[] U1_y;
+    delete[] U1_x;
+
+    for (int i = 0; i < NUM_FLUIDS; i++) {
+        delete[] S0[i];
+        delete[] S1[i];
     }
-    delete[] U0;
-    delete[] U1;
     delete[] S0;
     delete[] S1;
+}
+
+void Fluid::add_source_at(int y, int x, int i, float source) {
+    if (y > 0 && y < CELLS_Y - 1 && x > 0 && x < CELLS_X - 1) {
+        S1[i][idx2d(y, x)] += source;
+    }
+}
+
+float Fluid::Uy_at(int y, int x) {
+    return U1_y[idx2d(y, x)];
+}
+
+float Fluid::Ux_at(int y, int x) {
+    return U1_x[idx2dx(y, x)];
+}
+
+float Fluid::S_at(int y, int x, int i) {
+    return S1[i][idx2d(y, x)];
+}
+
+void Fluid::save_density(int i) {
+    memcpy(target_p, S1[i], sizeof(float) * num_cells_s);
+    solver::gaussian_blur(target_p_blur, target_p, 0);
+    target_fluid = i;
+    memset(S1[i], 0, sizeof(float) * num_cells_s);
+}
+
+void Fluid::toggle_target_driven(void) {
+    target_driven = !target_driven;
 }
