@@ -28,9 +28,9 @@
 #define NUM_FLUIDS   7
 
 /* Fluid parameters */
-#define VORTICITY    75.0
-#define VISCOSITY    0.1
-#define DIFFUSION   1e-3
+#define VORTICITY    1.0
+#define VISCOSITY    1e6
+#define DIFFUSION   2e-5
 #define DISSIPATION 0.05
 
 /* Simulation parameters */
@@ -44,12 +44,9 @@
 #define GATHER_RATE   1.0 // Vg in the paper
 
 /* Computed */
-#define num_cells_uy ((CELLS_Y + 1) * CELLS_X)
-#define num_cells_ux (CELLS_Y * (CELLS_X + 1))
-#define num_cells_s  (CELLS_Y * CELLS_X)
+#define num_cells_s (CELLS_Y * CELLS_X)
 
 /* Functions */
 inline int idx2d(int y, int x) { return y * CELLS_X + x; }
-inline int idx2dx(int y, int x) { return y * (CELLS_X + 1) + x; } // for staggered grid
 
 #endif
