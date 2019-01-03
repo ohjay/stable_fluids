@@ -208,10 +208,10 @@ static void confine_vorticity(float* U_y, float* U_x) {
     set_boundary_values(U_x, 2);
 }
 
-void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float* force_y, float* force_x) {
-    // add forces
-    add_force(U1_y, force_y, 1);
-    add_force(U1_x, force_x, 2);
+void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
+    // aftermath of adding forces
+    set_boundary_values(U1_y, 1);
+    set_boundary_values(U1_x, 2);
 
     // add vorticity
     confine_vorticity(U1_y, U1_x);
@@ -235,7 +235,7 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float* f
     project(U0_y, U0_x, U1_y, U1_x);
 }
 
-void solver::s_step(float* S1, float* S0, float* U_y, float* U_x, float* source) {
+void solver::s_step(float* S1, float* S0, float* U_y, float* U_x) {
     // advect according to velocity field
     transport(S0, S1, U_y, U_x, 0);
 
@@ -365,7 +365,7 @@ void solver::v_step_td(float* U1_y, float* U1_x, float* U0_y, float* U0_x,
 }
 
 void solver::s_step_td(float* S1, float* S0, float* U_y, float* U_x,
-                       float* source, float* target_p, float* target_p_blur) {
+                       float* target_p, float* target_p_blur) {
     transport(S0, S1, U_y, U_x, 0);
     // gather(S1, S0, target_p, target_p_blur);
     // std::swap(S0, S1);

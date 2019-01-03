@@ -34,15 +34,15 @@ void Fluid::init(void) {
     memset(S_blur, 0, sizeof(float) * num_cells_s);
 }
 
-void Fluid::step(float* force_y, float* force_x, float* source) {
+void Fluid::step(void) {
     if (target_driven) {
         solver::gaussian_blur(S_blur, S1[target_fluid], 0);
         solver::v_step_td(U1_y, U1_x, U0_y, U0_x, target_p, target_p_blur, S0[target_fluid], S_blur);
-        solver::s_step_td(S1[target_fluid], S0[target_fluid], U1_y, U1_x, source, target_p, target_p_blur);
+        solver::s_step_td(S1[target_fluid], S0[target_fluid], U1_y, U1_x, target_p, target_p_blur);
     } else {
-        solver::v_step(U1_y, U1_x, U0_y, U0_x, force_y, force_x);
+        solver::v_step(U1_y, U1_x, U0_y, U0_x);
         for (int i = 0; i < NUM_FLUIDS; i++) {
-            solver::s_step(S1[i], S0[i], U0_y, U0_x, source);
+            solver::s_step(S1[i], S0[i], U0_y, U0_x);
         }
     }
     swap_grids();
@@ -60,6 +60,18 @@ void Fluid::cleanup(void) {
     }
     delete[] S0;
     delete[] S1;
+}
+
+void Fluid::add_U_y_force_at(int y, int x, float force) {
+    if (y > 0 && y < CELLS_Y - 1 && x > 0 && x < CELLS_X - 1) {
+        U1_y[idx2d(y, x)] += force;
+    }
+}
+
+void Fluid::add_U_x_force_at(int y, int x, float force) {
+    if (y > 0 && y < CELLS_Y - 1 && x > 0 && x < CELLS_X - 1) {
+        U1_x[idx2d(y, x)] += force;
+    }
 }
 
 void Fluid::add_source_at(int y, int x, int i, float source) {

@@ -16,10 +16,12 @@ private:
     void swap_grids(void);
 public:
     void init(void);
-    void step(float* force_y, float* force_x, float* source);
+    void step(void);
     void cleanup(void);
 
     // setters, essentially
+    void add_U_y_force_at(int y, int x, float force);
+    void add_U_x_force_at(int y, int x, float force);
     void add_source_at(int y, int x, int i, float source);
 
     // getters

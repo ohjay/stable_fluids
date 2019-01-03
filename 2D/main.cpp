@@ -16,7 +16,7 @@ int prev_mouse_y, prev_mouse_x;
 int current_fluid;
 
 Fluid fluid;
-float *force_y, *force_x, *source, add_amount;
+float add_amount;
 double cr, cg, cb, alpha;
 float fluid_colors[NUM_FLUIDS][3];
 
@@ -38,13 +38,6 @@ void init(void) {
     float colors[7][3] = ALL_COLORS; // {RED, GREEN, BLUE, YELLOW, CYAN, MAGENTA, WHITE};
     for (int i = 0; i < NUM_FLUIDS; ++i)
         memcpy(fluid_colors[i], colors[i], sizeof(colors[i]));
-
-    force_y = new float[num_cells_s]();
-    force_x = new float[num_cells_s]();
-    source = new float[num_cells_s]();
-    memset(force_y, 0, sizeof(float) * num_cells_s);
-    memset(force_x, 0, sizeof(float) * num_cells_s);
-    memset(source, 0, sizeof(float) * num_cells_s);
 
     add_amount = ADD_AMT_INIT * max(CELLS_X, CELLS_Y);
     current_fluid = 0;
@@ -100,16 +93,8 @@ void reshape(int w, int h) {
 }
 
 void motion(int x, int y) {
-    prev_mouse_y = mouse_y;
-    prev_mouse_x = mouse_x;
     mouse_y = (int) (((float) (window_height - y) / window_height) * CELLS_Y);
     mouse_x = (int) (((float) x / window_width) * CELLS_X);
-
-    if (left_mouse_down) {
-        force_y[idx2d(mouse_y, mouse_x)] = mouse_y - prev_mouse_y;
-        force_x[idx2d(mouse_y, mouse_x)] = mouse_x - prev_mouse_x;
-        fluid.add_source_at(mouse_y, mouse_x, current_fluid, add_amount);
-    }
 }
 
 void mouse(int button, int state, int x, int y) {
@@ -175,19 +160,15 @@ void special_keyboard(int key, int x, int y) {
 }
 
 void idle(void) {
-    if (!left_mouse_down) {
-        for (int i = 0; i < num_cells_s; ++i) {
-            force_y[i] = 0;
-            force_x[i] = 0;
-            source[i] = 0;
-        }
-    }
-
     if (left_mouse_down) {
-        // fluid.add_source_at(mouse_y, mouse_x, current_fluid, add_amount);
+        fluid.add_U_y_force_at(mouse_y, mouse_x, FORCE_SCALE * (mouse_y - prev_mouse_y));
+        fluid.add_U_x_force_at(mouse_y, mouse_x, FORCE_SCALE * (mouse_x - prev_mouse_x));
+        fluid.add_source_at(mouse_y, mouse_x, current_fluid, add_amount);
+        prev_mouse_y = mouse_y;
+        prev_mouse_x = mouse_x;
     }
     if (!paused) {
-        fluid.step(force_y, force_x, source);
+        fluid.step();
     }
     glutPostRedisplay();
 }

@@ -10,6 +10,7 @@
 #define WINDOW_X       400
 #define DISPLAY_KEY      0
 #define ADD_AMT_INIT  0.3f
+#define FORCE_SCALE  10.0f
 
 /* Colors */
 #define RED         {1.0f, 0.0f, 0.0f}
