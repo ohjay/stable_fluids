@@ -36,7 +36,7 @@ void Fluid::init(void) {
 
 void Fluid::step(float* force_y, float* force_x, float* source) {
     if (target_driven) {
-        solver::gaussian_blur(S_blur, S0[target_fluid], 0);
+        solver::gaussian_blur(S_blur, S1[target_fluid], 0);
         solver::v_step_td(U1_y, U1_x, U0_y, U0_x, target_p, target_p_blur, S0[target_fluid], S_blur);
         solver::s_step_td(S1[target_fluid], S0[target_fluid], U1_y, U1_x, source, target_p, target_p_blur);
     } else {

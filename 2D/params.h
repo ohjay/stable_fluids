@@ -40,7 +40,7 @@
 
 /* Target-driven parameters */
 #define DRIVING_FORCE 1.0 // Vf in the paper
-#define ATTENUATION   1.0 // Vd in the paper
+#define ATTENUATION     0 // Vd in the paper
 #define GATHER_RATE   1.0 // Vg in the paper
 
 /* Computed */

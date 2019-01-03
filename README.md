@@ -1,6 +1,18 @@
 # Stable Fluids (CS 284B Project #1)
 
 ## Implementation and Usage Details (2D)
+### Usage
+```
+make fresh; ./sim
+```
+
+### Controls
+|             | Effect                                                        |
+| :---:       | :---:                                                         |
+| t           | Switch to target-driven mode, with current density as target. |
+| Space       | Pause simulation.                                             |
+| q, <ctrl>-Q | Quit simulation.                                              |
+
 ### Parameters
 All of our tunable parameters are stored within `params.h`. In particular, one
 can select whether to visualize the density grid or the velocity grid
@@ -17,11 +29,15 @@ In our fluid representation, the y-axis points downward and the x-axis points
 to the right. Unfortunately, the OpenGL / GLUT functions involve an
 upward-pointing y-axis... which makes for some fun reversals in `main.cpp`.
 
-### Velocity Fields
-We represent our velocity fields using staggered MAC grids. **If we take `(y, x)`
-to mean the center of the cell**, then the horizontal velocity stored at `(y, x)`
-is really the velocity at `(y, x - 0.5)`. Likewise, the vertical velocity stored
-at `(y, x)` is really the velocity at `(y - 0.5, x)`.
+### Grid
+We represent our velocity fields using colocated grids. We also tried using
+staggered MAC grids, but it made indexing annoying and didn't seem to improve
+the visual quality of results.
+
+**Previous staggered grid implementation:**
+_take `(y, x)` to be the center of the cell.
+Interpret horizontal velocity stored at `(y, x)` as velocity at `(y, x - 0.5)`.
+Interpret vertical velocity stored at `(y, x)` as velocity at `(y - 0.5, x)`._
 
 ### Indexing
 All of our grids are stored as linear arrays in row-major order. Therefore, to
@@ -29,10 +45,8 @@ index into one of our grids at position `(y, x)` we would actually access
 position `y * CELLS_X + x`. When indexing, we will always involve the vertical
 dimension before the horizontal dimension (à la NumPy).
 
-Also, since indexing is different for each of our grids (e.g. the staggered
-horizontal grid has one extra value per row), we include the extra parameter
-`key` with many of our functions. `key` can take on any of three values; the
-choice of which depends on the grid currently in use.
+We include the extra parameter `key` with many of our functions. `key` can take
+on any of three values; the choice of which depends on the grid currently in use.
 
 ```cpp
 0 // a scalar field

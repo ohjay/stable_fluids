@@ -48,8 +48,6 @@ void init(void) {
 
     add_amount = ADD_AMT_INIT * max(CELLS_X, CELLS_Y);
     current_fluid = 0;
-    // force_y = -15.0f;
-    // force_x = 10.0f;
 
     target_initialized = false;
 
@@ -110,11 +108,7 @@ void motion(int x, int y) {
     if (left_mouse_down) {
         force_y[idx2d(mouse_y, mouse_x)] = mouse_y - prev_mouse_y;
         force_x[idx2d(mouse_y, mouse_x)] = mouse_x - prev_mouse_x;
-        // source[idx2d(mouse_y, mouse_x)] = add_amount;
         fluid.add_source_at(mouse_y, mouse_x, current_fluid, add_amount);
-        // cout << fluid.Uy_at(mouse_y, mouse_x) << endl;
-        // cout << "(" << mouse_y << ", " << mouse_x << ") y: " << force_y[idx2d(mouse_y, mouse_x)] << endl;
-        // cout << "(" << mouse_y << ", " << mouse_x << "x: " << force_x[idx2d(mouse_y, mouse_x)] << endl;
     }
 }
 
@@ -195,11 +189,6 @@ void idle(void) {
     if (!paused) {
         fluid.step(force_y, force_x, source);
     }
-    // if (force_y < 0) { force_y += 1; }
-    // else if (force_y > 0) { force_y -= 1; }
-    // if (force_x < 0) { force_x += 1; }
-    // else if (force_x > 0) { force_x -= 1; }
-    // if (source != 0) { source = 0; }
     glutPostRedisplay();
 }
 
