@@ -7,15 +7,17 @@ make fresh; ./sim
 ```
 
 ### Controls
-|             | Effect                                                        |
-| :---:       | :---:                                                         |
-| t           | Switch to target-driven mode, with current density as target. |
-| Space       | Pause simulation.                                             |
-| q, <ctrl>-Q | Quit simulation.                                              |
+| Input     | Effect                                                        |
+| :-------: | :------------------------------------------------------------ |
+| [         | Switch to previous color.                                     |
+| ]         | Switch to next color.                                         |
+| t         | Switch to target-driven mode, with current density as target. |
+| Space     | Pause simulation.                                             |
+| q, Ctrl-Q | Quit simulation.                                              |
 
 ### Parameters
 All of our tunable parameters are stored within `params.h`. In particular, one
-can select whether to visualize the density grid or the velocity grid
+can select whether to visualize the density grid or a velocity grid
 by modifying `DISPLAY_KEY` as follows:
 
 ```cpp
@@ -45,7 +47,7 @@ index into one of our grids at position `(y, x)` we would actually access
 position `y * CELLS_X + x`. When indexing, we will always involve the vertical
 dimension before the horizontal dimension (à la NumPy).
 
-We include the extra parameter `key` with many of our functions. `key` can take
+We include the extra parameter `key` with many of our functions. This can take
 on any of three values; the choice of which depends on the grid currently in use.
 
 ```cpp
