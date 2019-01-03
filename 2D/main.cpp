@@ -102,6 +102,10 @@ void mouse(int button, int state, int x, int y) {
         case GLUT_LEFT_BUTTON:
             left_mouse_down = state == GLUT_DOWN;
             motion(x, y);
+            if (left_mouse_down) {
+                prev_mouse_y = mouse_y;
+                prev_mouse_x = mouse_x;
+            }
             break;
         default:
             break;
