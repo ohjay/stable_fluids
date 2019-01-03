@@ -15,5 +15,5 @@ namespace solver {
     void s_step_td(float* S1, float* S0, float* U1_y, float* U1_x,
                    float* target_p, float* target_p_blur);
 
-    void gaussian_blur(float* outfield, float* infield, int key);
+    void gaussian_blur(float* outfield, float* infield);
 }

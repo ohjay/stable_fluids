@@ -291,7 +291,6 @@ static void attenuate(float* field, int key) {
     set_boundary_values(field, key);
 }
 
-// TODO - causes NaNs
 // make sure to pass in the target densities here
 static void gather(float* S1, float* S0, float* ps, float* p_sblur) {
     memcpy(S1, S0, sizeof(float) * num_cells_s);
@@ -300,16 +299,16 @@ static void gather(float* S1, float* S0, float* ps, float* p_sblur) {
         for (int y = 1; y < CELLS_Y - 1; ++y) {
             for (int x = 1; x < CELLS_X - 1; ++x) {
                 update0 = (S1[idx2d(y + 1, x)] + ps[idx2d(y, x)] - ps[idx2d(y + 1, x)]) * p_sblur[idx2d(y + 1, x)] * S1[idx2d(y + 1, x)]
-                        + (S1[idx2d(y - 1, x)] + ps[idx2d(y, x)] - ps[idx2d(y - 1, x)]) * p_sblur[idx2d(y - 1, x)] * S1[idx2d(y - 1, x)]
+                        + (S1[idx2d(y - 1, x)] + ps[idx2d(y, x)] - ps[idx2d(y - 1, x)]) * p_sblur[idx2d(y, x)]
                         + (S1[idx2d(y, x + 1)] + ps[idx2d(y, x)] - ps[idx2d(y, x + 1)]) * p_sblur[idx2d(y, x + 1)] * S1[idx2d(y, x + 1)]
-                        + (S1[idx2d(y, x - 1)] + ps[idx2d(y, x)] - ps[idx2d(y, x - 1)]) * p_sblur[idx2d(y, x - 1)] * S1[idx2d(y, x - 1)];
+                        + (S1[idx2d(y, x - 1)] + ps[idx2d(y, x)] - ps[idx2d(y, x - 1)]) * p_sblur[idx2d(y, x)];
 
                 update1 = p_sblur[idx2d(y + 1, x)] * S1[idx2d(y + 1, x)] +
                           p_sblur[idx2d(y, x + 1)] * S1[idx2d(y, x + 1)] +
                           p_sblur[idx2d(y, x)] * 2.0f;
 
-                S1[idx2d(y, x)] = (S0[idx2d(y, x)] + DT * GATHER_RATE * update0)
-                        / (DT * GATHER_RATE * update1 + 1.0f);
+                S1[idx2d(y, x)] = (S0[idx2d(y, x)] / ((float) (CELLS_Y * CELLS_X)) + DT * GATHER_RATE * update0)
+                        / (DT * GATHER_RATE * update1 + (1.0f / ((float) (CELLS_Y * CELLS_X))));
             }
         }
         set_boundary_values(S1, 0);
@@ -317,7 +316,7 @@ static void gather(float* S1, float* S0, float* ps, float* p_sblur) {
 }
 
 // convolves the field with a 3x3 Gaussian kernel (zero/"same" padding)
-void solver::gaussian_blur(float* outfield, float* infield, int key) {
+void solver::gaussian_blur(float* outfield, float* infield) {
     for (int y = 0; y < CELLS_Y; ++y) {
         for (int x = 0; x < CELLS_X; ++x) {
             if (y > 0 && x > 0)
@@ -367,6 +366,6 @@ void solver::v_step_td(float* U1_y, float* U1_x, float* U0_y, float* U0_x,
 void solver::s_step_td(float* S1, float* S0, float* U_y, float* U_x,
                        float* target_p, float* target_p_blur) {
     transport(S0, S1, U_y, U_x, 0);
-    // gather(S1, S0, target_p, target_p_blur);
-    // std::swap(S0, S1);
+    std::swap(S1, S0);
+    gather(S0, S1, target_p, target_p_blur);
 }
