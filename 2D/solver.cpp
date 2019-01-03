@@ -113,10 +113,8 @@ static void lin_solve(float* S1, float* S0, float a, float b, int key) {
     }
 }
 
-// TODO
 static void diffuse(float* S1, float* S0, float diff, int key) {
-    float a = DT * diff * CELLS_Y * CELLS_X;  // TODO
-    memset(S1, 0, sizeof(float) * num_cells_s);
+    float a = DT * diff * CELLS_Y * CELLS_X;
     lin_solve(S1, S0, a, 1.0f + 4.0f * a, key);
 }
 
@@ -150,7 +148,6 @@ static void project(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
     set_boundary_values(U1_x, 2);
 }
 
-// TODO
 static void dissipate(float* S1, float* S0) {
     for (int i = 0; i < num_cells_s; ++i) {
         S1[i] = S0[i] / (1.0f + DT * DISSIPATION);
@@ -162,7 +159,6 @@ static float curl(int y, int x, float* U_y, float* U_x) {
             - U_x[idx2d(y + 1, x)] + U_x[idx2d(y - 1, x)]) / 2.0f;
 }
 
-// TODO
 static void confine_vorticity(float* U_y, float* U_x) {
     // compute |w|, the curl, at each position in the velocity field
     float w[num_cells_s];
@@ -245,6 +241,7 @@ static void drive_force(float* U1_y, float* U1_x, float* U0_y, float* U0_x, floa
     if (!done && isnan(p[101])) { cout << "fml34" << endl; done = true; }
 }
 
+// TODO
 static void attenuate(float* field, int key) {
     int cells_y = (key == 1) ? CELLS_Y + 1 : CELLS_Y;
     int cells_x = (key == 2) ? CELLS_X + 1 : CELLS_X;
@@ -261,6 +258,7 @@ static void attenuate(float* field, int key) {
     }
 }
 
+// TODO
 // make sure to pass in the target densities here
 static void gather(float* S1, float* S0, float* ps, float* p_sblur) {
     memcpy(S1, S0, sizeof(float) * num_cells_s);
@@ -299,28 +297,36 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float* f
     confine_vorticity(U1_y, U1_x);
 
     // diffuse
-    // diffuse(U1_y, U0_y, VISCOSITY, 1);
-    // diffuse(U1_x, U0_x, VISCOSITY, 2);
+    if (VISCOSITY > 0.0f) {
+        diffuse(U0_y, U1_y, VISCOSITY, 1);
+        diffuse(U0_x, U1_x, VISCOSITY, 2);
+        std::swap(U1_y, U0_y);
+        std::swap(U1_x, U0_x);
+    }
 
+    // ensure incompressibility via pressure correction (1)
     project(U0_y, U0_x, U1_y, U1_x);
-    // TODO fix grid (this indexing is ridiculous)
 
     // self-advect
     transport(U1_y, U0_y, U0_y, U0_x, 1);
     transport(U1_x, U0_x, U0_y, U0_x, 2);
 
-    // // add vorticity
-    // confine_vorticity(U1_y, U1_x);
-
-    // // ensure incompressibility via pressure correction
+    // ensure incompressibility via pressure correction (2)
     project(U0_y, U0_x, U1_y, U1_x);
 }
 
 void solver::s_step(float* S1, float* S0, float* U_y, float* U_x, float* source) {
-    // add_force(S1, source, 0);
+    // advect according to velocity field
     transport(S0, S1, U_y, U_x, 0);
-    // diffuse(S0, S1, DIFFUSION, 0);
-    // dissipate(S1, S0);
+
+    // diffuse
+    if (DIFFUSION > 0.0f) {
+        diffuse(S1, S0, DIFFUSION, 0);
+        std::swap(S0, S1);
+    }
+
+    // dissipate
+    dissipate(S1, S0);
 }
 
 void solver::v_step_td(float* U1_y, float* U1_x, float* U0_y, float* U0_x, float* target_p,
