@@ -1,4 +1,6 @@
 # Stable Fluids (CS 284B Project #1)
+Reimplementation of Jos Stam's [Stable Fluids](http://www.dgp.toronto.edu/people/stam/reality/Research/pdf/ns.pdf)
+and Fattal et al.'s [Target-Driven Smoke Animation](http://www.cs.huji.ac.il/labs/cglab/projects/tdsmoke/tdsmoke.pdf).
 
 ## Implementation and Usage Details (2D)
 ### Usage
