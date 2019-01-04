@@ -15,6 +15,9 @@ int mouse_y, mouse_x;
 int prev_mouse_y, prev_mouse_x;
 int current_fluid;
 
+bool is_rainbow;
+int rainbow_counter;
+
 Fluid fluid;
 float add_amount;
 double cr, cg, cb, alpha;
@@ -41,6 +44,8 @@ void init(void) {
 
     add_amount = ADD_AMT_INIT * max(CELLS_X, CELLS_Y);
     current_fluid = 0;
+    is_rainbow = false;
+    rainbow_counter = 0;
 
     target_initialized = false;
 
@@ -51,12 +56,9 @@ void display(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glPushMatrix();
 
-    int cells_y = (DISPLAY_KEY == 1) ? CELLS_Y + 1 : CELLS_Y;
-    int cells_x = (DISPLAY_KEY == 2) ? CELLS_X + 1 : CELLS_X;
-
     float color;
-    for (int y = 0; y < cells_y; ++y) {
-        for (int x = 0; x < cells_x; ++x) {
+    for (int y = 0; y < CELLS_Y; ++y) {
+        for (int x = 0; x < CELLS_X; ++x) {
             if (DISPLAY_KEY == 0) {
                 cr = 0.0f; cg = 0.0f; cb = 0.0f;
                 for (int i = 0; i < NUM_FLUIDS; i++) {
@@ -76,8 +78,8 @@ void display(void) {
             }
 
             glColor4f(cr, cg, cb, alpha);
-            glRectf((x - 1.0f) * 2.0f / (cells_x - 2) - 1.0f, (y - 0.5f) * 2.0f / (cells_y - 2) - 1.0f,
-                    (x + 1.0f) * 2.0f / (cells_x - 2) - 1.0f, (y + 0.5f) * 2.0f / (cells_y - 2) - 1.0f);
+            glRectf((x - 1.0f) * 2.0f / (CELLS_X - 2) - 1.0f, (y - 0.5f) * 2.0f / (CELLS_Y - 2) - 1.0f,
+                    (x + 1.0f) * 2.0f / (CELLS_X - 2) - 1.0f, (y + 0.5f) * 2.0f / (CELLS_Y - 2) - 1.0f);
         }
     }
 
@@ -117,14 +119,17 @@ void keyboard(unsigned char key, int x, int y) {
         case 'q':
             throw "exit";
             break;
+        case 'r':
+            is_rainbow = !is_rainbow;
+            break;
         case ' ':
             paused = !paused;
             break;
         case '=':
-            add_amount += 0.005f * max(CELLS_X, CELLS_Y);
+            add_amount += 0.01f * max(CELLS_X, CELLS_Y);
             break;
         case '-':
-            add_amount = fmax(0.0f, add_amount - 0.005f * max(CELLS_X, CELLS_Y));
+            add_amount = fmax(0.0f, add_amount - 0.01f * max(CELLS_X, CELLS_Y));
             break;
         case '[':
             current_fluid = max(0, current_fluid - 1);
@@ -170,6 +175,13 @@ void idle(void) {
         fluid.add_source_at(mouse_y, mouse_x, current_fluid, add_amount);
         prev_mouse_y = mouse_y;
         prev_mouse_x = mouse_x;
+
+        if (is_rainbow) {
+            rainbow_counter = (rainbow_counter + 1) % RAINBOW_HOLD_NSTEPS;
+            if (rainbow_counter == 0) {
+                current_fluid = (current_fluid + 1) % NUM_FLUIDS;
+            }
+        }
     }
     if (!paused) {
         fluid.step();

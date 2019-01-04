@@ -4,13 +4,14 @@
 // relevant systemwide parameters should go here
 
 /* GUI parameters */
-#define WINDOW_HEIGHT  600
-#define WINDOW_WIDTH   600
-#define WINDOW_Y       100
-#define WINDOW_X       400
-#define DISPLAY_KEY      0
-#define ADD_AMT_INIT  0.3f
-#define FORCE_SCALE  10.0f
+#define WINDOW_HEIGHT         600
+#define WINDOW_WIDTH          600
+#define WINDOW_Y              100
+#define WINDOW_X              400
+#define DISPLAY_KEY             0
+#define ADD_AMT_INIT         0.3f
+#define FORCE_SCALE         10.0f
+#define RAINBOW_HOLD_NSTEPS    30
 
 /* Colors */
 #define RED         {1.0f, 0.0f, 0.0f}
@@ -42,7 +43,7 @@
 /* Target-driven parameters */
 #define DRIVING_FORCE 1.0 // Vf in the paper
 #define ATTENUATION     0 // Vd in the paper
-#define GATHER_RATE  1e-6 // Vg in the paper
+#define GATHER_RATE  1e-7 // Vg in the paper
 
 /* Computed */
 #define num_cells_s (CELLS_Y * CELLS_X)

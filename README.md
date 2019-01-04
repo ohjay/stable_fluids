@@ -14,6 +14,8 @@ make fresh; ./sim
 | [         | Switch to previous color.                                     |
 | ]         | Switch to next color.                                         |
 | t         | Switch to target-driven mode, with current density as target. |
+| -         | Decrease source add amount.                                   |
+| +         | Increase source add amount.                                   |
 | Space     | Pause simulation.                                             |
 | q, Ctrl-Q | Quit simulation.                                              |
 
