@@ -4,11 +4,13 @@
 // relevant systemwide parameters should go here
 
 /* GUI parameters */
-#define WINDOW_HEIGHT 600
-#define WINDOW_WIDTH  600
-#define WINDOW_Y      100
-#define WINDOW_X      400
-#define DISPLAY_KEY     0
+#define WINDOW_HEIGHT  600
+#define WINDOW_WIDTH   600
+#define WINDOW_Y       100
+#define WINDOW_X       400
+#define DISPLAY_KEY      0
+#define ADD_AMT_INIT  0.5f
+#define FORCE_SCALE  10.0f
 
 /* Colors */
 #define RED         {1.0f, 0.0f, 0.0f}
@@ -21,32 +23,24 @@
 #define ALL_COLORS  {RED, GREEN, BLUE, YELLOW, CYAN, MAGENTA, WHITE}
 
 /* Grid parameters */
-#define NDIM     3 // currently assumed to be 2
-#define CELLS_Z 8
-#define CELLS_Y 8
-#define CELLS_X 8
-#define NUM_FLUIDS 1
+#define NDIM         3
+#define CELLS_Z      4
+#define CELLS_Y     80
+#define CELLS_X     80
+#define NUM_FLUIDS   7
 
 /* Fluid parameters */
-#define VISCOSITY    0.1
-#define DIFFUSION    0.2
-#define DISSIPATION 0.05
+#define DISSIPATION 0.01
 
 /* Simulation parameters */
-#define NUM_ITER   4
-#define DT       0.1
+#define NUM_ITER    5
+#define DT        0.5
 #define CLEANUP false
 
 /* Computed */
-#define num_cells_uz ((CELLS_Z + 1) * CELLS_Y * CELLS_X)
-#define num_cells_uy (CELLS_Z * (CELLS_Y + 1) * CELLS_X)
-#define num_cells_ux (CELLS_Z * CELLS_Y * (CELLS_X + 1))
-#define num_cells_s  (CELLS_Z * CELLS_Y * CELLS_X)
+#define num_cells (CELLS_Z * CELLS_Y * CELLS_X)
 
 /* Functions */
-inline int idx2d(int y, int x) { return y * CELLS_X + x; }
-inline int idx2dx(int y, int x) { return y * (CELLS_X + 1) + x; } // for staggered grid
 inline int idx3d(int z, int y, int x) { return z * CELLS_Y * CELLS_X + y * CELLS_X + x; }
-inline int idx3dx(int z, int y, int x) { return z * (CELLS_Y + 1) * (CELLS_X + 1) + y * (CELLS_X + 1) + x; }
 
 #endif

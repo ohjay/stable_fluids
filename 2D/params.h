@@ -36,9 +36,10 @@
 #define DISSIPATION 0.02
 
 /* Simulation parameters */
-#define NUM_ITER    5
-#define DT        0.1
-#define CLEANUP false
+#define NUM_ITER              5
+#define DT                  0.1
+#define CLEANUP           false
+#define CONFINE_VORTICITY false
 
 /* Target-driven parameters */
 #define DRIVING_FORCE 1.0 // Vf in the paper
