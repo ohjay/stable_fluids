@@ -13,6 +13,7 @@ make fresh; ./sim
 | :-------: | :------------------------------------------------------------ |
 | [         | Switch to previous color.                                     |
 | ]         | Switch to next color.                                         |
+| r         | Toggle rainbow mode (automatic color switching).              |
 | t         | Switch to target-driven mode, with current density as target. |
 | -         | Decrease source add amount.                                   |
 | +         | Increase source add amount.                                   |
