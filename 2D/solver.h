@@ -1,16 +1,19 @@
 #include <math.h>
-// #include <eigen3/Eigen/IterativeLinearSolvers> // symlink or install into /usr/local/include/
 #include <iostream>
 #include <numeric>
+#include <utility>
 
 #include "params.h"
-#include "debug.h"
 
 namespace solver {
-    // functions we will actually call from outside
-    int idx2d(int y, int x);
+    void v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x);
+    void s_step(float* S1, float* S0, float* U1_y, float* U1_x);
 
-    void v_step(double** U1, double** U0, double visc, double* F, double dt, double O[NDIM], double D[NDIM]);
-    void s_step(double* S1, double* S0, double ks, double as, double** U, double source, double dt,
-            double O[NDIM], double D[NDIM], int Fy, int Fx);
+    // target-driven variants
+    void v_step_td(float* U1_y, float* U1_x, float* U0_y, float* U0_x,
+                   float* target_p, float* target_p_blur, float* S, float* S_blur);
+    void s_step_td(float* S1, float* S0, float* U1_y, float* U1_x,
+                   float* target_p, float* target_p_blur);
+
+    void gaussian_blur(float* outfield, float* infield);
 }
