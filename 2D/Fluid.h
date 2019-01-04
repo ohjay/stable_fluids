@@ -8,10 +8,10 @@ private:
 
     // target-driven attributes
     bool target_driven;
-    float target_p[num_cells_s];
-    float target_p_blur[num_cells_s];
+    float target_p[num_cells];
+    float target_p_blur[num_cells];
     int target_fluid;
-    float S_blur[num_cells_s];
+    float S_blur[num_cells];
 
     void swap_grids(void);
 public:

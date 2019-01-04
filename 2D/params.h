@@ -11,7 +11,7 @@
 #define DISPLAY_KEY             0
 #define ADD_AMT_INIT         0.3f
 #define FORCE_SCALE         10.0f
-#define RAINBOW_HOLD_NSTEPS    30
+#define RAINBOW_HOLD_NSTEPS    35
 
 /* Colors */
 #define RED         {1.0f, 0.0f, 0.0f}
@@ -33,11 +33,11 @@
 #define VORTICITY    1.0
 #define VISCOSITY      0
 #define DIFFUSION      0
-#define DISSIPATION 0.05
+#define DISSIPATION 0.02
 
 /* Simulation parameters */
-#define NUM_ITER   5
-#define DT       0.1
+#define NUM_ITER    5
+#define DT        0.1
 #define CLEANUP false
 
 /* Target-driven parameters */
@@ -46,7 +46,7 @@
 #define GATHER_RATE  1e-7 // Vg in the paper
 
 /* Computed */
-#define num_cells_s (CELLS_Y * CELLS_X)
+#define num_cells (CELLS_Y * CELLS_X)
 
 /* Functions */
 inline int idx2d(int y, int x) { return y * CELLS_X + x; }

@@ -124,11 +124,11 @@ static void diffuse(float* S1, float* S0, float diff, int key) {
 
 static void project(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
     // construct initial guess for the solution
-    float S[num_cells_s];
-    memset(S, 0, sizeof(float) * num_cells_s);
+    float S[num_cells];
+    memset(S, 0, sizeof(float) * num_cells);
 
     // compute the divergence of the velocity field
-    float divergence[num_cells_s];
+    float divergence[num_cells];
     for (int y = 1; y < CELLS_Y - 1; ++y) {
         for (int x = 1; x < CELLS_X - 1; ++x) {
             divergence[idx2d(y, x)] = U0_y[idx2d(y + 1, x)] - U0_y[idx2d(y - 1, x)]
@@ -153,7 +153,7 @@ static void project(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
 }
 
 static void dissipate(float* S1, float* S0) {
-    for (int i = 0; i < num_cells_s; ++i) {
+    for (int i = 0; i < num_cells; ++i) {
         S1[i] = S0[i] / (1.0f + DT * DISSIPATION);
     }
 }
@@ -165,8 +165,8 @@ static float curl(int y, int x, float* U_y, float* U_x) {
 
 static void confine_vorticity(float* U_y, float* U_x) {
     // compute |w|, the curl, at each position in the velocity field
-    float w[num_cells_s];
-    float abs_w[num_cells_s];
+    float w[num_cells];
+    float abs_w[num_cells];
     for (int y = 1; y < CELLS_Y - 1; ++y) {
         for (int x = 1; x < CELLS_X - 1; ++x) {
             w[idx2d(y, x)] = curl(y, x, U_y, U_x);
@@ -177,7 +177,7 @@ static void confine_vorticity(float* U_y, float* U_x) {
     set_boundary_values(abs_w, 0);
 
     float dw_dy, dw_dx, norm, w_yx;
-    float fy_conf[num_cells_s], fx_conf[num_cells_s];
+    float fy_conf[num_cells], fx_conf[num_cells];
 
     for (int y = 1; y < CELLS_Y - 1; ++y) {
         for (int x = 1; x < CELLS_X - 1; ++x) {
@@ -218,10 +218,10 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
 
     // diffuse
     if (VISCOSITY > 0.0f) {
-        diffuse(U0_y, U1_y, VISCOSITY, 1);
-        diffuse(U0_x, U1_x, VISCOSITY, 2);
-        std::swap(U1_y, U0_y);
-        std::swap(U1_x, U0_x);
+        std::swap(U0_y, U1_y);
+        std::swap(U0_x, U1_x);
+        diffuse(U1_y, U0_y, VISCOSITY, 1);
+        diffuse(U1_x, U0_x, VISCOSITY, 2);
     }
 
     // ensure incompressibility via pressure correction (1)
@@ -241,12 +241,13 @@ void solver::s_step(float* S1, float* S0, float* U_y, float* U_x) {
 
     // diffuse
     if (DIFFUSION > 0.0f) {
-        diffuse(S1, S0, DIFFUSION, 0);
-        std::swap(S0, S1);
+        std::swap(S1, S0);
+        diffuse(S0, S1, DIFFUSION, 0);
     }
 
     // dissipate
-    dissipate(S1, S0);
+    std::swap(S1, S0);
+    dissipate(S0, S1);
 }
 
 // ------------------------
@@ -293,7 +294,7 @@ static void attenuate(float* field, int key) {
 
 // make sure to pass in the target densities here
 static void gather(float* S1, float* S0, float* ps, float* p_sblur) {
-    memcpy(S1, S0, sizeof(float) * num_cells_s);
+    memcpy(S1, S0, sizeof(float) * num_cells);
     float update0, update1;
     for (int _ = 0; _ < NUM_ITER; ++_) {
         for (int y = 1; y < CELLS_Y - 1; ++y) {

@@ -149,25 +149,6 @@ void keyboard(unsigned char key, int x, int y) {
     }
 }
 
-void special_keyboard(int key, int x, int y) {
-    switch (key) {
-        case GLUT_KEY_UP:
-            // force_y += 1.0f;
-            break;
-        case GLUT_KEY_DOWN:
-            // force_y -= 1.0f;
-            break;
-        case GLUT_KEY_LEFT:
-            // force_x -= 1.0f;
-            break;
-        case GLUT_KEY_RIGHT:
-            // force_x += 1.0f;
-            break;
-        default:
-            break;
-    }
-}
-
 void idle(void) {
     if (left_mouse_down) {
         fluid.add_U_y_force_at(mouse_y, mouse_x, FORCE_SCALE * (mouse_y - prev_mouse_y));
@@ -204,7 +185,6 @@ int main(int argc, char* argv[]) {
     glutPassiveMotionFunc(motion);
     glutMotionFunc(motion);
     glutKeyboardFunc(keyboard);
-    glutSpecialFunc(special_keyboard);
     glutIdleFunc(idle);
 
     try {
