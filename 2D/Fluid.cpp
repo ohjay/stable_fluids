@@ -5,9 +5,7 @@ void Fluid::swap_grids(void) {
     temp = U0_y; U0_y = U1_y; U1_y = temp;
     temp = U0_x; U0_x = U1_x; U1_x = temp;
     for (int i = 0; i < NUM_FLUIDS; i++) {
-        // temp = S1[i]; S0[i] = S1[i]; S1[i] = temp;
         S1[i] = S0[i];
-        // S0[i] = S1[i];
     }
 }
 

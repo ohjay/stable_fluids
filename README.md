@@ -9,6 +9,8 @@ make fresh; ./sim
 ```
 
 ### Controls
+Click and drag to add mass-density and manipulate the velocity field.
+
 | Input     | Effect                                                        |
 | :-------: | :------------------------------------------------------------ |
 | [         | Switch to previous color.                                     |
