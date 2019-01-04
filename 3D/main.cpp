@@ -107,7 +107,7 @@ void keyboard(unsigned char key, int x, int y) {
             add_amount += 200.0f;
             break;
         case '-':
-            add_amount = max(0.0f, add_amount - 200.0f);
+            add_amount = fmax(0.0f, add_amount - 200.0f);
             break;
         default:
             break;
