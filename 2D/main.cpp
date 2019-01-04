@@ -38,7 +38,7 @@ void init(void) {
     cb = 0.3;
     alpha = 0.03;
 
-    float colors[7][3] = ALL_COLORS; // {RED, GREEN, BLUE, YELLOW, CYAN, MAGENTA, WHITE};
+    float colors[7][3] = ALL_COLORS;
     for (int i = 0; i < NUM_FLUIDS; ++i)
         memcpy(fluid_colors[i], colors[i], sizeof(colors[i]));
 
