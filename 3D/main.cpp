@@ -33,7 +33,7 @@ void init(void) {
     cr = 0.7;
     cg = 0.9;
     cb = 0.3;
-    alpha = 0.03;
+    alpha = 0.1;
 
     rx = 30; ry = 45; rz = 0;
     zoom = 1.0f;
@@ -49,98 +49,78 @@ void init(void) {
 }
 
 void display(void) {
+    float cellstep = 10.0f;
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
     glPushMatrix();
+    glScalef(zoom, zoom, zoom);
+    glRotatef(rx, 1.0, 0.0, 0.0);
+    glRotatef(ry, 0.0, 1.0, 0.0);
+    glRotatef(rz, 0.0, 0.0, 1.0);
+    glScalef(2.0f / CELLS_X, 2.0f / CELLS_Y, 2.0f / CELLS_Z);
+    // glTranslatef(-1.0f + 2.0f / (CELLS_X), -1.0f + 2.0f / (CELLS_Y), -1.0f + (2.0f / CELLS_Z));
+    glTranslatef(-5.0f, -5.0f, -5.0f);
 
-    float color;
-    for (int y = 0; y < CELLS_Y; ++y) {
-        for (int x = 0; x < CELLS_X; ++x) {
-            if (DISPLAY_KEY == 0) {
-                cr = 0.0f; cg = 0.0f; cb = 0.0f;
-                for (int i = 0; i < NUM_FLUIDS; i++) {
-                    cr += fluid_colors[i][0] * fluid.S_at(2, y, x, i);
-                    cg += fluid_colors[i][1] * fluid.S_at(2, y, x, i);
-                    cb += fluid_colors[i][2] * fluid.S_at(2, y, x, i);
+    // draw colored voxels (3D grid)
+    float color, _alpha, total_S;
+    for (int z = 2; z < CELLS_Z; ++z) {
+        for (int y = 0; y < CELLS_Y; ++y) {
+            for (int x = 0; x < CELLS_X; ++x) {
+                if (DISPLAY_KEY == 0) {
+                    total_S = 0.0f;
+                    cr = 0.0f; cg = 0.0f; cb = 0.0f;
+                    for (int i = 0; i < NUM_FLUIDS; i++) {
+                        cr += fluid_colors[i][0] * fluid.S_at(z, y, x, i);
+                        cg += fluid_colors[i][1] * fluid.S_at(z, y, x, i);
+                        cb += fluid_colors[i][2] * fluid.S_at(z, y, x, i);
+                        total_S += fluid.S_at(z, y, x, i);
+                    }
+                } else {
+                    total_S = 1.0f;
+                    if (DISPLAY_KEY == 1) {
+                        color = fabs(fluid.Uz_at(z, y, x));
+                    } else if (DISPLAY_KEY == 2) {
+                        color = fabs(fluid.Uy_at(z, y, x));
+                    } else if (DISPLAY_KEY == 3) {
+                        color = fabs(fluid.Ux_at(z, y, x));
+                    }
+                    cr = fluid_colors[current_fluid][0] * color;
+                    cg = fluid_colors[current_fluid][1] * color;
+                    cb = fluid_colors[current_fluid][2] * color;
                 }
-            }
+                // without smart alpha blending,
+                // black voxels in the front cover colored voxels in the back
+                if (ALPHA_OPTION == 2) {
+                    _alpha = fmin(alpha, alpha * pow(total_S, 2) * 100);
+                } else {
+                    _alpha = fmin(alpha, alpha * pow(total_S, 3) * 1e3);
+                }
+                glColor4f(cr, cg, cb, _alpha);
+                glutSolidCube(1.0f);  // scaled earlier in x, y, z
 
-            glColor4f(cr, cg, cb, alpha);
-            glRectf((x - 1.0f) * 2.0f / (CELLS_X - 2) - 1.0f, (y - 0.5f) * 2.0f / (CELLS_Y - 2) - 1.0f,
-                    (x + 1.0f) * 2.0f / (CELLS_X - 2) - 1.0f, (y + 0.5f) * 2.0f / (CELLS_Y - 2) - 1.0f);
+                glTranslatef(cellstep / CELLS_X, 0.0f, 0.0f);
+            }
+            glTranslatef(-cellstep, 0.0f, 0.0f);
+            glTranslatef(0.0f, cellstep / CELLS_Y, 0.0f);
         }
+        glTranslatef(0.0f, -cellstep, 0.0f);
+        glTranslatef(0.0f, 0.0f, cellstep / CELLS_Z);
     }
+    glPopMatrix();
+
+    // draw wire cube
+    glPushMatrix();
+    glScalef(zoom, zoom, zoom);
+    glRotatef(rx, 1.0, 0.0, 0.0);
+    glRotatef(ry, 0.0, 1.0, 0.0);
+    glRotatef(rz, 0.0, 0.0, 1.0);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glutWireCube(0.7f);
+    glPopMatrix();
 
     glFlush();
     glutSwapBuffers();
-
-
-
-    // float cellstep = 10.0f;
-    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // glEnable(GL_BLEND);
-    // glPushMatrix();
-    // glScalef(zoom, zoom, zoom);
-    // glRotatef(rx, 1.0, 0.0, 0.0);
-    // glRotatef(ry, 0.0, 1.0, 0.0);
-    // glRotatef(rz, 0.0, 0.0, 1.0);
-    // glScalef(2.0f / CELLS_X, 2.0f / CELLS_Y, 2.0f / CELLS_Z);
-    // glTranslatef(-1.0f + 2.0f / CELLS_X / 2, -1.0f + 2.0f / CELLS_Y / 2, -1.0f + 2.0f / CELLS_Z / 2);
-    // // glTranslatef(-1, -1, -1);
-    //
-    // float color;
-    // for (int z = 0; z < CELLS_Z; ++z) {
-    //     for (int y = 0; y < CELLS_Y; ++y) {
-    //         for (int x = 0; x < CELLS_X; ++x) {
-    //             if (DISPLAY_KEY == 0) {
-    //                 cr = 0.0f; cg = 0.0f; cb = 0.0f;
-    //                 for (int i = 0; i < NUM_FLUIDS; i++) {
-    //                     cr += fluid_colors[i][0] * fluid.S_at(z, y, x, i);
-    //                     cg += fluid_colors[i][1] * fluid.S_at(z, y, x, i);
-    //                     cb += fluid_colors[i][2] * fluid.S_at(z, y, x, i);
-    //                 }
-    //             } else {
-    //                 if (DISPLAY_KEY == 0) {
-    //                     color = fabs(fluid.Uz_at(z, y, x));
-    //                 } else if (DISPLAY_KEY == 1) {
-    //                     color = fabs(fluid.Uy_at(z, y, x));
-    //                 } else if (DISPLAY_KEY == 2) {
-    //                     color = fabs(fluid.Ux_at(z, y, x));
-    //                 }
-    //                 cr = fluid_colors[0][0] * color;
-    //                 cg = fluid_colors[0][1] * color;
-    //                 cb = fluid_colors[0][2] * color;
-    //             }
-    //             // cout << fluid.S_at(z, y, x, 0) << endl;
-    //             // glColor4f((x % 2) * 1.0f, 1.0f, 1.0f, 0.03f);
-    //             // if (x == 0 || y == 0 || z == 0 || x == CELLS_X - 1 || y == CELLS_Y - 1 || z == CELLS_Z - 1)
-    //             //     glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-    //             // cout << cr << " " << cg << " " << cb << endl;
-    //             // glColor4f(0.1 * x, 0.1 * x, 0.2 * x, 0.3);
-    //             glColor4f(cr * 20, cg * 20, cb * 20, alpha);
-    //             glutSolidCube(1.0f);  // scaled earlier in x, y, z
-    //
-    //             glTranslatef(cellstep / CELLS_X, 0.0f, 0.0f);
-    //         }
-    //         glTranslatef(-cellstep, 0.0f, 0.0f);
-    //         glTranslatef(0.0f, cellstep / CELLS_Y, 0.0f);
-    //     }
-    //     glTranslatef(0.0f, -cellstep, 0.0f);
-    //     glTranslatef(0.0f, 0.0f, cellstep / CELLS_Z);
-    // }
-    // glPopMatrix();
-    // glPushMatrix();
-    // // glTranslatef(1.0f, 1.0f, -2.0f);
-    // glScalef(zoom, zoom, zoom);
-    // glRotatef(rx, 1.0, 0.0, 0.0);
-    // glRotatef(ry, 0.0, 1.0, 0.0);
-    // glRotatef(rz, 0.0, 0.0, 1.0);
-    // glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    // glutWireCube(0.7f);
-    // glPopMatrix();
-    //
-    // glFlush();
-    // glutSwapBuffers();
 }
 
 void reshape(int w, int h) {
@@ -222,6 +202,7 @@ void special_keyboard(int key, int x, int y) {
 
 void idle(void) {
     if (left_mouse_down) {
+        fluid.add_U_z_force_at(2, mouse_y, mouse_x, FORCE_SCALE * (mouse_y - prev_mouse_y));
         fluid.add_U_y_force_at(2, mouse_y, mouse_x, FORCE_SCALE * (mouse_y - prev_mouse_y));
         fluid.add_U_x_force_at(2, mouse_y, mouse_x, FORCE_SCALE * (mouse_x - prev_mouse_x));
         fluid.add_source_at(2, mouse_y, mouse_x, current_fluid, add_amount);

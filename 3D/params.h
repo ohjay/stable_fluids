@@ -11,6 +11,7 @@
 #define DISPLAY_KEY      0
 #define ADD_AMT_INIT  0.5f
 #define FORCE_SCALE  10.0f
+#define ALPHA_OPTION     3
 
 /* Colors */
 #define RED         {1.0f, 0.0f, 0.0f}
@@ -24,9 +25,9 @@
 
 /* Grid parameters */
 #define NDIM         3
-#define CELLS_Z      4
-#define CELLS_Y     80
-#define CELLS_X     80
+#define CELLS_Z     30
+#define CELLS_Y     30
+#define CELLS_X     30
 #define NUM_FLUIDS   7
 
 /* Fluid parameters */
