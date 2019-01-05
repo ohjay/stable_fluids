@@ -67,10 +67,10 @@ void display(void) {
     glRotatef(ry, 0.0, 1.0, 0.0);
     glRotatef(rz, 0.0, 0.0, 1.0);
     glScalef(2.0f / CELLS_X, 2.0f / CELLS_Y, 2.0f / CELLS_Z);
-    glTranslatef(-5.0f, -5.0f, -5.0f);
+    glTranslatef(-4.75f, -4.75f, -4.75f);
 
     // draw colored voxels (3D grid)
-    float cell_step = 10.0f;
+    float cell_step = 9.8f;
     float color, _alpha, total_S;
     for (int z = 0; z < CELLS_Z; ++z) {
         for (int y = 0; y < CELLS_Y; ++y) {
