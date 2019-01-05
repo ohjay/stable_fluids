@@ -17,6 +17,8 @@ int current_fluid;
 
 Fluid fluid;
 float add_amount;
+float U_z_force;
+int z_add_position;
 int rx, ry, rz;
 float zoom;
 double cr, cg, cb, alpha;
@@ -44,6 +46,8 @@ void init(void) {
 
     add_amount = ADD_AMT_INIT * max(max(CELLS_X, CELLS_Y), CELLS_Z);
     current_fluid = 0;
+    U_z_force = 0.0f;
+    z_add_position = (int) (((float) CELLS_Z) / 2.0f);
 
     fluid.init();
 }
@@ -59,12 +63,11 @@ void display(void) {
     glRotatef(ry, 0.0, 1.0, 0.0);
     glRotatef(rz, 0.0, 0.0, 1.0);
     glScalef(2.0f / CELLS_X, 2.0f / CELLS_Y, 2.0f / CELLS_Z);
-    // glTranslatef(-1.0f + 2.0f / (CELLS_X), -1.0f + 2.0f / (CELLS_Y), -1.0f + (2.0f / CELLS_Z));
     glTranslatef(-5.0f, -5.0f, -5.0f);
 
     // draw colored voxels (3D grid)
     float color, _alpha, total_S;
-    for (int z = 2; z < CELLS_Z; ++z) {
+    for (int z = 0; z < CELLS_Z; ++z) {
         for (int y = 0; y < CELLS_Y; ++y) {
             for (int x = 0; x < CELLS_X; ++x) {
                 if (DISPLAY_KEY == 0) {
@@ -94,9 +97,9 @@ void display(void) {
                 if (ALPHA_OPTION == 2) {
                     _alpha = fmin(alpha, alpha * pow(total_S, 2) * 100);
                 } else {
-                    _alpha = fmin(alpha, alpha * pow(total_S, 3) * 1e3);
+                    _alpha = fmin(alpha, alpha * pow(total_S, 3) * 1e4);
                 }
-                glColor4f(cr, cg, cb, _alpha);
+                glColor4f(cr * COLOR_SCALE, cg * COLOR_SCALE, cb * COLOR_SCALE, _alpha);
                 glutSolidCube(1.0f);  // scaled earlier in x, y, z
 
                 glTranslatef(cellstep / CELLS_X, 0.0f, 0.0f);
@@ -152,6 +155,12 @@ void mouse(int button, int state, int x, int y) {
 
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
+        case 'a':
+            z_add_position = max(1, z_add_position - 1);
+            break;
+        case 'd':
+            z_add_position = min(CELLS_Z - 2, z_add_position + 1);
+            break;
         case 'q':
             throw "exit";
             break;
@@ -202,10 +211,11 @@ void special_keyboard(int key, int x, int y) {
 
 void idle(void) {
     if (left_mouse_down) {
-        fluid.add_U_z_force_at(2, mouse_y, mouse_x, FORCE_SCALE * (mouse_y - prev_mouse_y));
-        fluid.add_U_y_force_at(2, mouse_y, mouse_x, FORCE_SCALE * (mouse_y - prev_mouse_y));
-        fluid.add_U_x_force_at(2, mouse_y, mouse_x, FORCE_SCALE * (mouse_x - prev_mouse_x));
-        fluid.add_source_at(2, mouse_y, mouse_x, current_fluid, add_amount);
+        U_z_force = (mouse_y - prev_mouse_y) * (mouse_x - prev_mouse_x);
+        fluid.add_U_z_force_at(z_add_position, mouse_y, mouse_x, FORCE_SCALE * U_z_force);
+        fluid.add_U_y_force_at(z_add_position, mouse_y, mouse_x, FORCE_SCALE * (mouse_y - prev_mouse_y));
+        fluid.add_U_x_force_at(z_add_position, mouse_y, mouse_x, FORCE_SCALE * (mouse_x - prev_mouse_x));
+        fluid.add_source_at(z_add_position, mouse_y, mouse_x, current_fluid, add_amount);
         prev_mouse_y = mouse_y;
         prev_mouse_x = mouse_x;
     }

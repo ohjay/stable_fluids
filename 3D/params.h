@@ -12,6 +12,7 @@
 #define ADD_AMT_INIT  0.5f
 #define FORCE_SCALE  10.0f
 #define ALPHA_OPTION     3
+#define COLOR_SCALE     20
 
 /* Colors */
 #define RED         {1.0f, 0.0f, 0.0f}
