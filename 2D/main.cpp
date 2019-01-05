@@ -72,9 +72,9 @@ void display(void) {
                 } else if (DISPLAY_KEY == 2) {
                     color = fabs(fluid.Ux_at(y, x));
                 }
-                cr = fluid_colors[0][0] * color;
-                cg = fluid_colors[0][1] * color;
-                cb = fluid_colors[0][2] * color;
+                cr = fluid_colors[current_fluid][0] * color;
+                cg = fluid_colors[current_fluid][1] * color;
+                cb = fluid_colors[current_fluid][2] * color;
             }
 
             glColor4f(cr, cg, cb, alpha);
