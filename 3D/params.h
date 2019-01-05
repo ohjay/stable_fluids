@@ -4,15 +4,16 @@
 // relevant systemwide parameters should go here
 
 /* GUI parameters */
-#define WINDOW_HEIGHT  600
-#define WINDOW_WIDTH   600
-#define WINDOW_Y       100
-#define WINDOW_X       400
-#define DISPLAY_KEY      0
-#define ADD_AMT_INIT  0.5f
-#define FORCE_SCALE  10.0f
-#define ALPHA_OPTION     3
-#define COLOR_SCALE     20
+#define WINDOW_HEIGHT         600
+#define WINDOW_WIDTH          600
+#define WINDOW_Y              100
+#define WINDOW_X              400
+#define DISPLAY_KEY             0
+#define ADD_AMT_INIT         0.5f
+#define FORCE_SCALE         10.0f
+#define ALPHA_OPTION            3
+#define COLOR_SCALE            20
+#define RAINBOW_HOLD_NSTEPS    20
 
 /* Colors */
 #define RED         {1.0f, 0.0f, 0.0f}

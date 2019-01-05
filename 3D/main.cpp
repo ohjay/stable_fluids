@@ -15,6 +15,9 @@ int mouse_y, mouse_x;
 int prev_mouse_y, prev_mouse_x;
 int current_fluid;
 
+bool is_rainbow;
+int rainbow_counter;
+
 Fluid fluid;
 float add_amount;
 float U_z_force;
@@ -48,12 +51,13 @@ void init(void) {
     current_fluid = 0;
     U_z_force = 0.0f;
     z_add_position = (int) (((float) CELLS_Z) / 2.0f);
+    is_rainbow = false;
+    rainbow_counter = 0;
 
     fluid.init();
 }
 
 void display(void) {
-    float cellstep = 10.0f;
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
@@ -66,6 +70,7 @@ void display(void) {
     glTranslatef(-5.0f, -5.0f, -5.0f);
 
     // draw colored voxels (3D grid)
+    float cell_step = 10.0f;
     float color, _alpha, total_S;
     for (int z = 0; z < CELLS_Z; ++z) {
         for (int y = 0; y < CELLS_Y; ++y) {
@@ -102,13 +107,13 @@ void display(void) {
                 glColor4f(cr * COLOR_SCALE, cg * COLOR_SCALE, cb * COLOR_SCALE, _alpha);
                 glutSolidCube(1.0f);  // scaled earlier in x, y, z
 
-                glTranslatef(cellstep / CELLS_X, 0.0f, 0.0f);
+                glTranslatef(cell_step / CELLS_X, 0.0f, 0.0f);
             }
-            glTranslatef(-cellstep, 0.0f, 0.0f);
-            glTranslatef(0.0f, cellstep / CELLS_Y, 0.0f);
+            glTranslatef(-cell_step, 0.0f, 0.0f);
+            glTranslatef(0.0f, cell_step / CELLS_Y, 0.0f);
         }
-        glTranslatef(0.0f, -cellstep, 0.0f);
-        glTranslatef(0.0f, 0.0f, cellstep / CELLS_Z);
+        glTranslatef(0.0f, -cell_step, 0.0f);
+        glTranslatef(0.0f, 0.0f, cell_step / CELLS_Z);
     }
     glPopMatrix();
 
@@ -160,6 +165,9 @@ void keyboard(unsigned char key, int x, int y) {
             break;
         case 'd':
             z_add_position = min(CELLS_Z - 2, z_add_position + 1);
+            break;
+        case 'r':
+            is_rainbow = !is_rainbow;
             break;
         case 'q':
             throw "exit";
@@ -218,6 +226,13 @@ void idle(void) {
         fluid.add_source_at(z_add_position, mouse_y, mouse_x, current_fluid, add_amount);
         prev_mouse_y = mouse_y;
         prev_mouse_x = mouse_x;
+
+        if (is_rainbow) {
+            rainbow_counter = (rainbow_counter + 1) % RAINBOW_HOLD_NSTEPS;
+            if (rainbow_counter == 0) {
+                current_fluid = (current_fluid + 1) % NUM_FLUIDS;
+            }
+        }
     }
     if (!paused) {
         fluid.step();
