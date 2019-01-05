@@ -2,12 +2,12 @@
 Reimplementation of Jos Stam's [Stable Fluids](http://www.dgp.toronto.edu/people/stam/reality/Research/pdf/ns.pdf)
 and Fattal et al.'s [Target-Driven Smoke Animation](http://www.cs.huji.ac.il/labs/cglab/projects/tdsmoke/tdsmoke.pdf).
 
-![stable_2d](https://user-images.githubusercontent.com/8358648/50723686-d3237a80-1095-11e9-8c0c-660263dd23cb.gif)
-![stable_face1](https://user-images.githubusercontent.com/8358648/50723688-d6b70180-1095-11e9-98df-fa8603a843cd.gif)
-![stable_s1](https://user-images.githubusercontent.com/8358648/50723690-da4a8880-1095-11e9-8ba8-ae0aec01b382.gif)
-![stable_face2](https://user-images.githubusercontent.com/8358648/50723689-d880c500-1095-11e9-828a-43ae26a0ae3d.gif)
-![stable_s2](https://user-images.githubusercontent.com/8358648/50723692-dc144c00-1095-11e9-866c-c8f67a8d09a2.gif)
-![stable_3d](https://user-images.githubusercontent.com/8358648/50723687-d4ed3e00-1095-11e9-8098-888a60bfdd0e.gif)
+![stable_2d](https://user-images.githubusercontent.com/8358648/50723766-d10deb80-1096-11e9-9ea2-509681ff63a9.gif)
+![stable_3d](https://user-images.githubusercontent.com/8358648/50723767-d2d7af00-1096-11e9-935e-06322229eee8.gif)
+![stable_face1](https://user-images.githubusercontent.com/8358648/50723768-d4a17280-1096-11e9-8ecb-68ae34f848b9.gif)
+![stable_face2](https://user-images.githubusercontent.com/8358648/50723769-d66b3600-1096-11e9-931a-a6a85a6425ac.gif)
+![stable_s1](https://user-images.githubusercontent.com/8358648/50723771-d9febd00-1096-11e9-956a-ff5c9198bf03.gif)
+![stable_s2](https://user-images.githubusercontent.com/8358648/50723772-dbc88080-1096-11e9-88be-88fa2ccaf1b2.gif)
 
 ## Implementation and Usage Details (2D)
 ### Usage
