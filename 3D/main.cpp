@@ -85,7 +85,6 @@ void display(void) {
                         total_S += fluid.S_at(z, y, x, i);
                     }
                 } else {
-                    total_S = 1.0f;
                     if (DISPLAY_KEY == 1) {
                         color = fabs(fluid.Uz_at(z, y, x));
                     } else if (DISPLAY_KEY == 2) {
@@ -93,6 +92,7 @@ void display(void) {
                     } else if (DISPLAY_KEY == 3) {
                         color = fabs(fluid.Ux_at(z, y, x));
                     }
+                    total_S = color;
                     cr = fluid_colors[current_fluid][0] * color;
                     cg = fluid_colors[current_fluid][1] * color;
                     cb = fluid_colors[current_fluid][2] * color;
