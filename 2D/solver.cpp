@@ -9,7 +9,7 @@ using namespace std;
 
 // negate all values in a field
 static void negate_field(float* field) {
-    for (int i = 0; i < CELLS_Y * CELLS_X; ++i) {
+    for (int i = 0; i < num_cells; ++i) {
         field[i] = -field[i];
     }
 }
@@ -118,7 +118,7 @@ static void lin_solve(float* S1, float* S0, float a, float b, int key) {
 }
 
 static void diffuse(float* S1, float* S0, float diff, int key) {
-    float a = DT * diff * CELLS_Y * CELLS_X;
+    float a = DT * diff * num_cells;
     lin_solve(S1, S0, a, 1.0f + 4.0f * a, key);
 }
 
@@ -214,7 +214,9 @@ void solver::v_step(float* U1_y, float* U1_x, float* U0_y, float* U0_x) {
     set_boundary_values(U1_x, 2);
 
     // add vorticity
-    confine_vorticity(U1_y, U1_x);
+    if (CONFINE_VORTICITY) {
+        confine_vorticity(U1_y, U1_x);
+    }
 
     // diffuse
     if (VISCOSITY > 0.0f) {
@@ -308,8 +310,8 @@ static void gather(float* S1, float* S0, float* ps, float* p_sblur) {
                           p_sblur[idx2d(y, x + 1)] * S1[idx2d(y, x + 1)] +
                           p_sblur[idx2d(y, x)] * 2.0f;
 
-                S1[idx2d(y, x)] = (S0[idx2d(y, x)] / ((float) (CELLS_Y * CELLS_X)) + DT * GATHER_RATE * update0)
-                        / (DT * GATHER_RATE * update1 + (1.0f / ((float) (CELLS_Y * CELLS_X))));
+                S1[idx2d(y, x)] = (S0[idx2d(y, x)] / ((float) num_cells) + DT * GATHER_RATE * update0)
+                        / (DT * GATHER_RATE * update1 + (1.0f / ((float) num_cells)));
             }
         }
         set_boundary_values(S1, 0);
@@ -358,7 +360,9 @@ void solver::v_step_td(float* U1_y, float* U1_x, float* U0_y, float* U0_x,
     transport(U1_x, U0_x, U0_y, U0_x, 2);
 
     // add vorticity
-    confine_vorticity(U1_y, U1_x);
+    if (CONFINE_VORTICITY) {
+        confine_vorticity(U1_y, U1_x);
+    }
 
     // ensure incompressibility via pressure correction
     project(U0_y, U0_x, U1_y, U1_x);
