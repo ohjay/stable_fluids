@@ -67,10 +67,10 @@ void display(void) {
     glRotatef(ry, 0.0, 1.0, 0.0);
     glRotatef(rz, 0.0, 0.0, 1.0);
     glScalef(2.0f / CELLS_X, 2.0f / CELLS_Y, 2.0f / CELLS_Z);
-    glTranslatef(-4.75f, -4.75f, -4.75f);
+    glTranslatef(-4.75f, -4.75f, -4.75f); // hardcoded for 30x30x30 grid
 
     // draw colored voxels (3D grid)
-    float cell_step = 9.8f;
+    float cell_step = 9.8f; // hardcoded for 30x30x30 grid
     float color, _alpha, total_S;
     for (int z = 0; z < CELLS_Z; ++z) {
         for (int y = 0; y < CELLS_Y; ++y) {
@@ -105,7 +105,7 @@ void display(void) {
                     _alpha = fmin(alpha, alpha * pow(total_S, 3) * 1e4);
                 }
                 glColor4f(cr * COLOR_SCALE, cg * COLOR_SCALE, cb * COLOR_SCALE, _alpha);
-                glutSolidCube(1.0f);  // scaled earlier in x, y, z
+                glutSolidCube(1.0f); // scaled earlier in x, y, z
 
                 glTranslatef(cell_step / CELLS_X, 0.0f, 0.0f);
             }
