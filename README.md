@@ -1,5 +1,5 @@
 # Stable Fluids (CS 284B Project #1)
-Reimplementation of Jos Stam's [Stable Fluids](http://www.dgp.toronto.edu/people/stam/reality/Research/pdf/ns.pdf)
+Reimplementation of Jos Stam's [Stable Fluids](https://d2f99xq7vri1nk.cloudfront.net/legacy_app_files/pdf/ns.pdf)
 and Fattal et al.'s [Target-Driven Smoke Animation](http://www.cs.huji.ac.il/labs/cglab/projects/tdsmoke/tdsmoke.pdf).
 
 ![stable_2d](https://user-images.githubusercontent.com/8358648/50723766-d10deb80-1096-11e9-9ea2-509681ff63a9.gif)
@@ -69,3 +69,8 @@ on any of three values; the choice of which depends on the grid currently in use
 1 // a velocity grid containing vertical components
 2 // a velocity grid containing horizontal components
 ```
+
+## References
+1. [Stable Fluids](https://d2f99xq7vri1nk.cloudfront.net/legacy_app_files/pdf/ns.pdf) (Stam)
+2. [Target-Driven Smoke Animation](http://www.cs.huji.ac.il/labs/cglab/projects/tdsmoke/tdsmoke.pdf) (Fattal, Lischinski)
+3. [Real-Time Fluid Dynamics for Games](https://pdfs.semanticscholar.org/847f/819a4ea14bd789aca8bc88e85e906cfc657c.pdf) (Stam)
