@@ -1,4 +1,5 @@
 #include <math.h>
+#include <cstring>
 #include <iostream>
 #include <numeric>
 #include <utility>
